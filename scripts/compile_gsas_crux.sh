@@ -132,14 +132,16 @@ fi
 echo "Activating virtual environment: ${VENV_PATH}"
 source "${VENV_PATH}/bin/activate"
 
-# Verify dependencies
-echo "Checking build dependencies..."
+# Rehash to pick up newly installed executables
+hash -r 2>/dev/null || true
+
+# Verify Python dependencies
+echo "Checking Python build dependencies..."
 python3 << 'EOF'
 import sys
 
 deps = {
     "numpy": "1.26",
-    "meson": None,
     "cython": None,
     "pybind11": None,
 }
@@ -159,9 +161,8 @@ for module, required_ver in deps.items():
         all_ok = False
 
 if not all_ok:
-    print("\nMissing dependencies! Install with:")
-    print("  pip install --upgrade pip setuptools wheel")
-    print("  pip install meson ninja numpy==1.26 cython pybind11")
+    print("\nMissing Python dependencies! Install with:")
+    print("  pip install numpy==1.26 cython pybind11")
     sys.exit(1)
 EOF
 
@@ -169,7 +170,30 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-echo -e "${GREEN}✓ All dependencies present${NC}"
+# Verify command-line build tools (non-blocking - let meson fail naturally if not found)
+echo ""
+echo "Checking command-line build tools..."
+
+# Explicitly add venv bin to PATH in case it's not propagating properly
+export PATH="${VENV_PATH}/bin:${PATH}"
+hash -r 2>/dev/null || true
+
+if command -v meson &> /dev/null; then
+    MESON_VER=$(meson --version)
+    echo "  ✓ meson: ${MESON_VER}"
+else
+    echo -e "  ${YELLOW}⚠ meson not detected in PATH, but will try anyway...${NC}"
+    echo "  PATH includes: ${PATH}"
+fi
+
+if command -v ninja &> /dev/null; then
+    NINJA_VER=$(ninja --version)
+    echo "  ✓ ninja: ${NINJA_VER}"
+else
+    echo -e "  ${YELLOW}⚠ ninja not found (optional)${NC}"
+fi
+
+echo -e "${GREEN}✓ Python dependencies present${NC}"
 echo ""
 
 # Step 4: Set NumPy compiler flags (CRITICAL!)
