@@ -280,23 +280,55 @@ echo "-----------------------------------------------------------------------"
 # (See pathHacking.py - searches for GSASII-bin at repository root)
 
 if [ -d "${GSAS_SOURCE_DIR}/GSASII/bin" ]; then
+    # Determine platform-specific directory name
+    PYVER=$(python3 -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')")
+    NPVER=$(python3 -c "import numpy; v=numpy.__version__.split('.'); print(f'{v[0]}.{v[1]}')")
+
+    # Platform detection (lin for Linux, dar for Darwin/macOS, win for Windows)
+    case "$(uname -s)" in
+        Linux*)   PLATFORM="lin";;
+        Darwin*)  PLATFORM="dar";;
+        CYGWIN*|MINGW*|MSYS*) PLATFORM="win";;
+        *)        PLATFORM="lin";;  # Default to Linux
+    esac
+
+    PLATFORM_DIR="${PLATFORM}_64_p${PYVER}_n${NPVER}"
+    TARGET_DIR="${GSAS_SOURCE_DIR}/GSASII-bin/${PLATFORM_DIR}"
+
+    echo "Platform directory: ${PLATFORM_DIR}"
     echo "Source: ${GSAS_SOURCE_DIR}/GSASII/bin/"
-    echo "Target: ${GSAS_SOURCE_DIR}/GSASII-bin/"
+    echo "Target: ${TARGET_DIR}"
+    echo ""
 
-    # Create GSASII-bin if it doesn't exist
-    mkdir -p "${GSAS_SOURCE_DIR}/GSASII-bin"
+    # Create platform-specific directory in GSASII-bin
+    mkdir -p "${TARGET_DIR}"
 
-    # Move binaries to correct location
-    echo "Moving binary directories..."
-    mv "${GSAS_SOURCE_DIR}/GSASII/bin/"* "${GSAS_SOURCE_DIR}/GSASII-bin/" || {
-        echo -e "${YELLOW}⚠ Move failed, trying copy instead...${NC}"
-        cp -r "${GSAS_SOURCE_DIR}/GSASII/bin/"* "${GSAS_SOURCE_DIR}/GSASII-bin/"
-    }
+    # Find and move all compiled binaries from GSASII/bin to the platform directory
+    echo "Moving compiled binaries..."
+    if find "${GSAS_SOURCE_DIR}/GSASII/bin" -type f \( -name "*.so" -o -name "*.pyd" -o -name "*.dylib" \) -print0 2>/dev/null | xargs -0 -I {} mv {} "${TARGET_DIR}/" 2>/dev/null; then
+        echo -e "${GREEN}✓ Binaries moved successfully${NC}"
+    else
+        # Try alternative: move entire subdirectories if they exist
+        echo "Trying alternative move strategy..."
+        for subdir in "${GSAS_SOURCE_DIR}/GSASII/bin/"*; do
+            if [ -d "$subdir" ]; then
+                echo "  Moving contents of $(basename "$subdir")..."
+                mv "$subdir"/* "${TARGET_DIR}/" 2>/dev/null || cp -r "$subdir"/* "${TARGET_DIR}/"
+            fi
+        done
+        # Also move any loose files
+        find "${GSAS_SOURCE_DIR}/GSASII/bin" -maxdepth 1 -type f -exec mv {} "${TARGET_DIR}/" \; 2>/dev/null
+    fi
 
     # Remove old bin directory
     rm -rf "${GSAS_SOURCE_DIR}/GSASII/bin"
 
-    echo -e "${GREEN}✓ Binaries moved to GSASII-bin/${NC}"
+    # List what we moved
+    echo ""
+    echo "Binaries in ${PLATFORM_DIR}:"
+    ls -lh "${TARGET_DIR}" | head -10
+
+    echo -e "${GREEN}✓ Binaries organized in GSASII-bin/${PLATFORM_DIR}/${NC}"
 else
     echo -e "${YELLOW}⚠ No binaries found at GSASII/bin/ - nothing to move${NC}"
 fi
@@ -309,7 +341,17 @@ echo "-----------------------------------------------------------------------"
 
 PYVER=$(python3 -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')")
 NPVER=$(python3 -c "import numpy; v=numpy.__version__.split('.'); print(f'{v[0]}.{v[1]}')")
-BINARY_DIR="${GSAS_SOURCE_DIR}/GSASII-bin/linux_64_p${PYVER}_n${NPVER}"
+
+# Platform detection
+case "$(uname -s)" in
+    Linux*)   PLATFORM="lin";;
+    Darwin*)  PLATFORM="dar";;
+    CYGWIN*|MINGW*|MSYS*) PLATFORM="win";;
+    *)        PLATFORM="lin";;
+esac
+
+PLATFORM_DIR="${PLATFORM}_64_p${PYVER}_n${NPVER}"
+BINARY_DIR="${GSAS_SOURCE_DIR}/GSASII-bin/${PLATFORM_DIR}"
 
 echo "Expected binary directory: ${BINARY_DIR}"
 
