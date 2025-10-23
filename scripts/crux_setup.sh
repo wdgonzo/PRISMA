@@ -25,9 +25,17 @@ echo "======================================================================="
 echo ""
 
 # Configuration
-VENV_NAME="xrd_env"
-VENV_PATH="${HOME}/${VENV_NAME}"
-PROCESSOR_DIR="${HOME}/Processor"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROCESSOR_DIR="$(dirname "${SCRIPT_DIR}")"
+SOFTWARE_DIR="$(dirname "${PROCESSOR_DIR}")"
+VENV_NAME="venv"
+VENV_PATH="${SOFTWARE_DIR}/${VENV_NAME}"
+
+echo "Detected paths:"
+echo "  Software directory: ${SOFTWARE_DIR}"
+echo "  PRISMA directory: ${PROCESSOR_DIR}"
+echo "  VEnv location: ${VENV_PATH}"
+echo ""
 
 # Colors for output
 RED='\033[0;31m'
@@ -111,9 +119,11 @@ echo "Step 4: Installing Python packages..."
 echo "-----------------------------------------------------------------------"
 
 # Core dependencies (from initialize.py + HPC additions)
-# NumPy 2.x requires Python 3.10+
+# NumPy 1.26 required for GSAS-II compatibility
 PACKAGES=(
-    "numpy>=2.0,<3.0"
+    "numpy==1.26"
+    "cython"
+    "pybind11"
     "pandas"
     "scipy"
     "matplotlib"
@@ -210,8 +220,8 @@ echo ""
 echo "Step 6: Compiling GSAS-II from source..."
 echo "-----------------------------------------------------------------------"
 
-# Default GSAS-II location
-GSAS_DIR="${HOME}/GSAS-II"
+# Default GSAS-II location (same level as PRISMA)
+GSAS_DIR="${SOFTWARE_DIR}/GSAS-II"
 
 # Check if GSAS-II source exists
 if [ -d "${GSAS_DIR}" ]; then
@@ -273,19 +283,23 @@ echo "-----------------------------------------------------------------------"
 
 # Create activation script
 ACTIVATE_SCRIPT="${PROCESSOR_DIR}/activate_xrd.sh"
-cat > "${ACTIVATE_SCRIPT}" << 'ACTIVATE_EOF'
+cat > "${ACTIVATE_SCRIPT}" << ACTIVATE_EOF
 #!/bin/bash
 # Quick activation script for XRD environment on Crux
+
+# Determine directories
+SCRIPT_DIR="\$(cd "\$(dirname "\${BASH_SOURCE[0]}")" && pwd)"
+SOFTWARE_DIR="\$(dirname "\${SCRIPT_DIR}")"
 
 # Load cray-python module
 module load cray-python/3.11.7
 
 # Activate virtual environment
-source "${HOME}/xrd_env/bin/activate"
+source "\${SOFTWARE_DIR}/venv/bin/activate"
 
 # GSAS-II environment
-export GSAS2DIR="${HOME}/GSAS-II/GSASII"
-export PYTHONPATH="${GSAS2DIR}:${PYTHONPATH}"
+export GSAS2DIR="\${SOFTWARE_DIR}/GSAS-II/GSASII"
+export PYTHONPATH="\${GSAS2DIR}:\${PYTHONPATH}"
 
 # Crux proxy settings (for compute nodes)
 export http_proxy="http://proxy.alcf.anl.gov:3128"

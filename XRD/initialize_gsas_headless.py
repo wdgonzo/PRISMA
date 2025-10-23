@@ -66,6 +66,20 @@ def validate_gsas_directory(gsas_dir):
     if missing_files:
         return False, None, f"Missing required files in {gsasii_dir}: {', '.join(missing_files)}"
 
+    # Check for compiled binaries (optional but recommended)
+    bin_dir = os.path.join(gsasii_dir, 'bin')
+    if os.path.isdir(bin_dir):
+        # Look for any platform-specific binary directories
+        bin_subdirs = [d for d in os.listdir(bin_dir) if os.path.isdir(os.path.join(bin_dir, d))]
+        if bin_subdirs:
+            print(f"  ℹ Found compiled binaries in: {', '.join(bin_subdirs)}")
+        else:
+            print(f"  ⚠ Warning: bin/ directory exists but no compiled binaries found")
+            print(f"    You may need to compile GSAS-II for your platform")
+    else:
+        print(f"  ⚠ Warning: No bin/ directory found - GSAS-II may not be compiled")
+        print(f"    Run: bash scripts/compile_gsas_crux.sh {gsas_dir}")
+
     return True, gsasii_dir, None
 
 
@@ -146,14 +160,26 @@ def initialize_gsas_scriptable(gsasii_dir):
     print("-" * 70)
     print()
 
-    # Add GSASII directory to sys.path
-    if gsasii_dir not in sys.path:
-        sys.path.insert(0, gsasii_dir)
+    # Add GSAS-II root directory (parent of GSASII) to sys.path
+    gsas_root = os.path.dirname(gsasii_dir)
+    if gsas_root not in sys.path:
+        sys.path.insert(0, gsas_root)
+        print(f"Added to sys.path: {gsas_root}")
 
     try:
+        # Import GSASIIpath first to set binary path
+        print("Importing GSASIIpath...")
+        import GSASIIpath
+
+        # Set binary path (detects compiled binaries)
+        print("Setting binary path...")
+        GSASIIpath.SetBinaryPath(showConfigMsg=True)
+        print(f"Binary path: {GSASIIpath.binaryPath}")
+        print()
+
         # Import GSAS-II scriptable module
         print("Importing GSASIIscriptable...")
-        from GSASII import GSASIIscriptable as G2sc
+        import GSASIIscriptable as G2sc
 
         print("✓ GSASIIscriptable imported successfully")
         print()
@@ -169,12 +195,16 @@ def initialize_gsas_scriptable(gsasii_dir):
         return True
 
     except ImportError as e:
-        print(f"✗ Failed to import GSASIIscriptable: {e}")
+        print(f"✗ Failed to import GSAS-II modules: {e}")
         print()
         print("This usually means:")
         print("  1. GSAS-II is not properly installed")
         print("  2. Required Python packages are missing")
         print("  3. Binary files are not compiled")
+        print()
+        print("Debug information:")
+        print(f"  sys.path includes: {gsas_root}")
+        print(f"  Expected GSASII at: {gsasii_dir}")
         print()
         return False
 
