@@ -3,7 +3,7 @@
 
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-Beta%200.1-orange.svg)](https://github.com/yourusername/PRISMA)
+[![Version](https://img.shields.io/badge/version-Beta%200.1-orange.svg)](https://github.com/wdgonzo/PRISMA)
 
 **PRISMA** is a comprehensive Python-based X-ray diffraction (XRD) data processing system for materials science analysis. Built on GSAS-II, it provides advanced peak fitting, strain analysis, and visualization capabilities optimized for both local workstations and HPC supercomputers.
 
@@ -39,7 +39,7 @@
 
 1. **Clone the repository**:
 ```bash
-git clone https://github.com/yourusername/PRISMA.git
+git clone https://github.com/wdgonzo/PRISMA.git
 cd PRISMA
 ```
 
@@ -193,15 +193,15 @@ Storage efficiency:
 
 ## Citation
 
-If you use PRISMA in your research, please cite:
+If you use PRISMA in your research, please cite (paper in progress):
 
 ```bibtex
 @software{prisma2025,
   title = {PRISMA: Parallel Refinement and Integration System for Multi-Azimuthal Analysis},
-  author = {Gonzalez, William and Guzman, Adrian and Davenport, Luke},
+  author = {Gonzalez, William and Guzman, Adrian and Davenport, Luke and Lorenzo-Martin, Cinta},
   year = {2025},
   version = {Beta 0.1},
-  url = {https://github.com/yourusername/PRISMA}
+  url = {https://github.com/wdgonzo/PRISMA}
 }
 ```
 
@@ -218,9 +218,9 @@ If you use PRISMA in your research, please cite:
 ## Support
 
 For issues, questions, or contributions:
-- **Issues**: [GitHub Issues](https://github.com/yourusername/PRISMA/issues)
-- **Documentation**: [Wiki](https://github.com/yourusername/PRISMA/wiki)
-- **Contact**: [your-email@institution.edu]
+- **Issues**: [GitHub Issues](https://github.com/wdgonzo/PRISMA/issues)
+- **Documentation**: [Wiki](https://github.com/wdgonzo/PRISMA/wiki)
+- **Contact**: [wgonzalez@anl.gov]
 
 ---
 
