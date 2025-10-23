@@ -1,0 +1,360 @@
+import gsas_processing as gp
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+import numpy as np
+import advanced_filtration as af
+import json
+import sys
+import os
+
+from dataclasses import dataclass
+from enum import Enum
+from dask import delayed, compute
+from dask.distributed import Client
+
+
+class Graph_Setting(Enum):
+    STANDARD = 0
+    OLD_STANDARD = 1
+    ROBUST = 2
+    ROBUST_LL = 3
+    STANDARD_LL = 4
+
+class Location(Enum):
+    DIRECT = 0
+    SURROUNDING = 1
+    FULL = 2
+
+@dataclass
+class graph_params:
+    graph_type: Graph_Setting
+    locked_lims: tuple[float, float]    #upper and lower color limits for Locked-Limits Robust Graphing
+    
+    peak_index: int
+    peak_miller: int
+    label: str
+    sample: str = ""
+    stage: gp.Stages = gp.Stages.CONT
+    in_situ: bool = False
+    loc: Location = Location.FULL
+    ranges: tuple[int, int] = (-90,90)
+
+
+@delayed
+def clean_dataframe(label: str, in_situ: bool,  df: pd.DataFrame) -> pd.DataFrame:
+
+    with open('submitted_values.json', 'r') as f:
+        values = json.load(f)
+
+    column_labels = df.columns.tolist()
+    wanted_labels = ['azimuth', 'frame', label]
+    drop_list = [element for element in column_labels if element not in wanted_labels]
+    df.drop(drop_list, axis=1,inplace = True)
+    if in_situ and values["setting"] == "30x50":
+        df['frame'] = (df['frame'] * 0.2755) / 60 #TODO: Add the time of the first frame using the frame start val
+    elif in_situ and values["setting"] == "SpeedTall":
+        df['frame'] = (df['frame'] * 0.019) / 60
+    else:
+        df['frame'] = df['frame'].iloc[::-1].reset_index(drop=True)
+
+    newData = pd.DataFrame(df)
+
+    #newData = newData.abs()
+    #kernel = np.ones(3)
+    #newData = newData.apply(lambda x: np.convolve(x, kernel, mode='same'))
+    
+    data = newData.pivot(index='frame',columns='azimuth',values=label)
+    return data
+
+
+def draw_heatmap(data: pd.DataFrame, params: graph_params, process_params: gp.gsas_params, values):
+    plt.figure(figsize=(10,8))
+    plt.rcParams.update({'font.size': 20})
+    tag = ""
+    if params.graph_type == Graph_Setting.ROBUST_LL:
+            # Robust scaling with user-defined limits
+            ax = sns.heatmap(data, cmap=values["Color"], robust=True,
+                            vmin=params.locked_lims[0], vmax=params.locked_lims[1],
+                            cbar_kws={"shrink": 0.75})
+            tag += "-LockedLimitsRobust"
+            
+    elif params.graph_type == Graph_Setting.STANDARD:
+        # Standard scaling (min to max)
+        ax = sns.heatmap(data, cmap=values["Color"],
+                        cbar_kws={"shrink": 0.75})
+        tag += "-Standard"
+            
+    elif params.graph_type == Graph_Setting.STANDARD_LL:
+        # Legacy locked limits mode
+        ax = sns.heatmap(data, vmin=params.locked_lims[0], vmax=params.locked_lims[1],
+                        cmap=values["Color"],
+                        cbar_kws={"shrink": 0.75})
+        tag += "-LockedLimitsStandard"
+            
+    else:  # ROBUST
+        # Robust scaling (2nd to 98th percentile)
+        ax = sns.heatmap(data, cmap=values["Color"], robust=True,
+                        cbar_kws={"shrink": 0.75})
+        tag += "-Robust"
+
+    convert = {'Bef':"Before", 'Aft':'After', 'Cont': 'Continuous', 'Delt': 'Delta'}
+
+    plt.xlabel('Azimuthal Angle (degrees)')
+    if params.in_situ:
+        plt.ylabel('Time (min)')
+    else:
+        plt.ylabel('Depth (μm)')
+    
+    for spine in ax.spines.values():
+        spine.set_visible(True)
+        spine.set_edgecolor('black')
+        spine.set_linewidth(1.5)
+
+    cbar = ax.collections[0].colorbar
+    cbar.outline.set_edgecolor('black')
+    cbar.outline.set_linewidth(1.5)
+
+    if params.label.startswith("delta"):
+        cbar.set_label(f"Δ {params.label[:].capitalize()}")
+        plt.title(f"{params.loc.name.capitalize()} Change in {params.label.split()[-1].capitalize()} {params.sample} {params.stage.name} {params.peak_miller} Peak ({params.graph_type.name})")
+
+    elif params.label.startswith("diff"):
+        cbar.set_label(f"Δ {params.label.split()[-1].capitalize()}")
+        plt.title(f" Difference in {params.label.split()[-1].capitalize()} ({params.peak_miller})", y = 1.05)
+
+    elif params.label.startswith('gamma'):
+        cbar.set_label("FWHM (centidegrees)")
+        plt.title(f"{convert[params.stage.name.capitalize()]} ({params.peak_miller})", y = 1.05)
+
+    else:
+        cbar.set_label(f"{params.label.capitalize()}")
+        plt.title(f"{convert[params.stage.name.capitalize()]} ({params.peak_miller})", y = 1.05)
+
+    azimuths = np.array(data.columns, dtype=float)
+
+    # Set x-ticks based on azimuth range
+    az_min, az_max = params.ranges
+    if az_min >= 0 and az_max > 180:
+        # 0-360 range, use increments of 45
+        start = ((az_min + 44) // 45) * 45
+        end = (az_max // 45) * 45
+        x_ticks = np.arange(start, end + 1, 45)
+    else:
+        # e.g., -110 to 110, use increments of 30
+        start = ((az_min + 29) // 30) * 30
+        end = (az_max // 30) * 30
+        x_ticks = np.arange(start, end + 1, 30)
+    x_tick_indices = [np.abs(azimuths - tick).argmin() for tick in x_ticks if (tick >= azimuths.min() and tick <= azimuths.max())]
+    ax.set_xticks(x_tick_indices)
+    ax.set_xticklabels([f"{int(azimuths[idx])}" for idx in x_tick_indices], rotation=0)
+
+    y_ticks = np.linspace(0, len(data.index) - 1, 15, dtype=int) 
+
+    ax.set_xlim(-1.5, data.shape[1] + 1.5)
+
+    if params.in_situ:
+        ax.set_yticks(y_ticks)
+        ax.set_yticklabels([f"{data.index[i]:.2f}" for i in y_ticks])
+        plt.subplots_adjust(left=0.17, right=0.93, top=0.98, bottom=0.01)
+    
+    elif params.in_situ == False and params.label.startswith("strain"):
+        y_ticks = np.arange(0, len(data.index), 20)
+        offset = len(data.index) - y_ticks[-1]
+        ax.set_yticks(np.flip(y_ticks+offset))
+        ax.set_yticklabels([f"{i:.0f}" for i in y_ticks])
+        plt.subplots_adjust(left=0.14, right=0.88, top=0.98, bottom=0.01)
+
+    else:
+        y_ticks = np.arange(0, len(data.index), 20)
+        offset = len(data.index) - y_ticks[-1]
+        ax.set_yticks(np.flip(y_ticks+offset))
+        ax.set_yticklabels([f"{i:.0f}" for i in y_ticks])
+        plt.subplots_adjust(left=0.14, right=0.93, top=0.98, bottom=0.01)
+
+    ratio = ((float(values["Az End"]) - float(values["Az Start"])) / values["spacing"]) / (len(data.index))
+    ax.set_aspect(ratio)
+
+    save_dir = f"{values['save_plot_folder']}/{params.sample}"
+    os.makedirs(save_dir, exist_ok=True)
+    plt.savefig(f"{save_dir}/{params.sample}-{params.stage.name}-{params.peak_miller}-{params.label.replace(' ', '')}{tag}.png")
+    if values["save_csv"] == True:
+        data.to_csv(f"{values['save_plot_folder']}/{params.sample}/{params.sample}-{params.stage.name}-{params.peak_miller}-{params.label.replace(' ', '')}{tag}.csv")
+    plt.close()
+
+def heatplot(data: gp.test_data, graph_parameter: graph_params, values):
+    if data.parameters.stage in (gp.Stages.CONT, gp.Stages.DELTDSPACING):
+        graph_parameter.in_situ = True
+
+    graph_parameter.sample = data.parameters.sample
+    graph_parameter.stage = data.parameters.stage
+
+    working_data = [df.copy() for df in data.frame_orientation[graph_parameter.peak_index].dataframes]
+
+    cleaning_tasks = []
+    for df in working_data:
+        cleaning_task = clean_dataframe(graph_parameter.label, graph_parameter.in_situ, df)
+        cleaning_tasks.append(cleaning_task)
+
+    cleaned_data = compute(*cleaning_tasks)
+    finalized = pd.concat(cleaned_data)
+    finalized_sorted = finalized.sort_index(axis = 0, ascending=True)
+    draw_heatmap(finalized_sorted, graph_parameter, data.parameters, values)
+
+def main(values):
+    client = Client()
+
+    if values["setting"] == "SpeedTall" or values["setting"] == "Speed":
+        combined_setting = f"{values["setting"]}{values["Exposure"]}"
+    else:
+        combined_setting = values["setting"]
+
+    label_vals = values["Map_Type"].split(",")
+
+    dynamic_settings = []
+    do_subtraction = False
+
+    for stage_name in values["stages"]:
+        # Convert the stage from string to gp.Stages enum
+        dynamic_stage = gp.Stages[stage_name]  # Accessing enum by name
+
+        if dynamic_stage == gp.Stages.DELT:
+            do_subtraction = True
+            continue
+
+        if stage_name == "BEF":
+            air_cut = values["air_frames_bef"]
+        elif stage_name == "AFT":
+            air_cut = values["air_frames_aft"]
+        else:
+            air_cut = 0
+        
+        if values["Mode"] == "Robust L.L.":
+            graph_input = "ROBUST_LL"
+        elif values["Mode"] == "Standard L.L.":
+            graph_input = "STANDARD_LL"
+        else:
+            graph_input = values["Mode"].upper()
+
+        graph = Graph_Setting[graph_input]  # Accessing enum by name
+        processing_parameters = gp.gsas_params(
+            image_folder = values["image_folder"], 
+            control_file = values["control_file"],
+            mask_file = values["mask_file"],
+
+            sample = values["sample"],
+            setting = combined_setting,
+            stage = dynamic_stage,
+            miller = 110,
+            notes = values["notes"],
+
+            limits = [7.5, 8.2],
+            backgrounds = [4.0, 9.0],
+            azimuths= values["azimuths"],
+            frames = values["frames"],
+            num_peaks = 1,
+
+            spacing = values["spacing"],
+            step = values["step"],
+            air_frames = air_cut
+            )
+        
+        drawing_parameters = graph_params(
+            graph_type = graph,
+            locked_lims = values["Locked Limits"],
+
+            peak_index = 0, #TODO: THE NUMBER OF THE FOLDER FOR WHICH PEAK
+            peak_miller = 110, #TODO: PEAK MILLER INDEX, FOR PRINTING
+            label = "BLEH", #Try a 'delta d' run for peak 211 @ index 2; it should be generated when initialize_data is run
+            sample = processing_parameters.sample,
+            stage = processing_parameters.stage,
+            in_situ = False,
+            loc = Location.FULL,
+            ranges = (processing_parameters.azimuths[0], processing_parameters.azimuths[1])
+        )
+        
+        dynamic_settings.append({"draw":drawing_parameters, 'params':processing_parameters})
+
+    dynamic_data = []
+    
+    for setting in dynamic_settings:
+        try:
+            new_data = gp.open_folder(setting['params'].save_path(), setting['params'])
+            final_data = gp.initialize_data(new_data, setting['params'])
+        except FileNotFoundError:
+            new_data = gp.image_parallelizer(setting['params'])
+            final_data = gp.initialize_data(new_data, setting['params'])
+        
+        dynamic_data.append(final_data)
+
+    for datas, settings in zip(dynamic_data, dynamic_settings):
+
+        for value in label_vals:
+            settings['draw'].label = value
+            heatplot(datas, settings['draw'], values)
+            settings['draw'].peak_index = 0
+            settings['draw'].peak_miller = 110
+            # heatplot(datas, settings['draw'], values)
+            # settings['draw'].peak_index = 1
+            # settings['draw'].peak_miller = 200
+            # heatplot(datas, settings['draw'], values)
+            # settings['draw'].peak_index = 2
+            # settings['draw'].peak_miller = 211
+
+    if do_subtraction:
+        finalized = gp.subtract(dynamic_data[0], dynamic_data[1], label_vals, values['Shift'])
+        for value in label_vals:
+            dynamic_settings[0]['draw'].label = value
+            dynamic_settings[0]['draw'].label = 'diff ' + dynamic_settings[0]['draw'].label
+            heatplot(finalized, dynamic_settings[0]['draw'], values)
+            dynamic_settings[0]['draw'].peak_index = 0
+            dynamic_settings[0]['draw'].peak_miller = 110
+            heatplot(finalized, dynamic_settings[0]['draw'], values)
+            dynamic_settings[0]['draw'].peak_index = 1
+            dynamic_settings[0]['draw'].peak_miller = 200
+            heatplot(finalized, dynamic_settings[0]['draw'], values)
+            dynamic_settings[0]['draw'].peak_index = 2
+            dynamic_settings[0]['draw'].peak_miller = 211
+
+        
+    #new_data_bef = gp.image_parallelizer(processing_parameters_bef)
+    #new_data_bef = gp.open_folder(processing_parameters_bef.save_path(), processing_parameters_bef)
+    #final_data_bef = gp.initialize_data(new_data_bef, processing_parameters_bef)
+
+    #new_data_aft = gp.image_parallelizer(processing_parameters_aft)
+    #new_data_aft = gp.open_folder(processing_parameters_aft.save_path(), processing_parameters_aft)
+    #final_data_aft = gp.initialize_data(new_data_aft, processing_parameters_aft)
+    
+    #Prints the Subtraction
+    # drawing_parameters.graph_type = Graph_Setting.ROBUST
+    # heatplot(final_data_bef, drawing_parameters)
+    # heatplot(final_data_aft, drawing_parameters)
+    # drawing_parameters.peak_index = 0
+    # drawing_parameters.peak_miller = 110
+    # heatplot(final_data_bef, drawing_parameters)
+    # heatplot(final_data_aft, drawing_parameters)
+    # drawing_parameters.peak_index = 1
+    # drawing_parameters.peak_miller = 200
+    # drawing_parameters.locked_lims = [-0.015, 0.015]
+    # heatplot(final_data_bef, drawing_parameters)
+    # heatplot(final_data_aft, drawing_parameters)
+    # drawing_parameters.peak_index = 2
+    # drawing_parameters.peak_miller = 211
+
+    print("Done")
+
+    client.close()
+
+if __name__ == "__main__":
+    if len(sys.argv) < 2:
+        print("No data received.")
+        sys.exit(1)
+
+    # Get the JSON string from the command-line arguments
+    values_json = sys.argv[1]
+
+    # Convert the JSON string back to a dictionary
+    values = json.loads(values_json)
+
+    # Run the main function with the values dictionary
+    main(values)

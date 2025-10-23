@@ -1,0 +1,27 @@
+{
+    "sample": "1A1",
+    "setting": "1x50",
+    "stage": "aft",
+    "image_folder": "G:/Data/Mar2023/pilatus/1A1",
+    "control_file": "G:/Data/Mar2023/pilatus/Ceria/Ceria-1x50.imctrl",
+    "mask_file": "G:/Data/Mar2023/pilatus/Ceria/auto_mask.immask",
+    "exposure": "1",
+    "step": 1,
+    "spacing": 5,
+    "frame_start": 0,
+    "frame_end": -1,
+    "az_start": -180,
+    "az_end": 180,
+    "active_peaks": [
+        {
+            "name": "Austenite",
+            "miller_index": "200",
+            "position": 7.79,
+            "limits": [
+                7.6,
+                8.0
+            ]
+        }
+    ],
+    "notes": ""
+}

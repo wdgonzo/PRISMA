@@ -1,0 +1,333 @@
+#!/bin/bash
+################################################################################
+# Crux Production Job Script
+# ===========================
+# Large-scale XRD processing on ALCF Crux supercomputer
+#
+# Queue: workq-route (1-184 nodes, up to 24 hours)
+# Purpose: Production processing of large datasets
+#
+# Usage:
+#   1. Edit the USER CONFIGURATION section below
+#   2. Adjust node count and walltime based on dataset size
+#   3. Submit: qsub scripts/submit_crux_production.pbs
+#   4. Monitor: qstat -u $USER
+#   5. Check output: tail -f xrd_prod_*.o*
+#
+# Scaling Guidelines:
+#   Small datasets (100-500 frames):    4-8 nodes,   2-4 hours
+#   Medium datasets (500-2000 frames):  16-32 nodes, 4-8 hours
+#   Large datasets (2000-5000 frames):  32-64 nodes, 8-12 hours
+#   Very large (5000+ frames):          64-128 nodes, 12-24 hours
+#
+# Expected speedup: ~75% linear scaling up to 64 nodes
+#   (e.g., 32 nodes ≈ 24x faster than single node)
+#
+# Author: William Gonzalez
+# Date: January 2025
+################################################################################
+
+#PBS -N xrd_production
+#PBS -l select=32:system=crux
+#PBS -l place=scatter
+#PBS -l walltime=08:00:00
+#PBS -q workq-route
+#PBS -A YourProjectName
+#PBS -j oe
+#PBS -o ${HOME}/xrd_prod_${PBS_JOBID}.out
+#PBS -r y
+#PBS -m abe
+#PBS -M your.email@example.com
+
+# ============================================================================
+# USER CONFIGURATION - EDIT THESE VARIABLES
+# ============================================================================
+
+# Project allocation (REQUIRED - get from ALCF)
+# Replace YourProjectName in #PBS -A above with your actual project name
+
+# Email notifications (optional)
+# Replace your.email@example.com in #PBS -M above to get job status emails
+# -m abe: send email on (a)bort, (b)egin, (e)nd
+
+# Processing parameters
+# Edit your submitted_values.json file with full processing parameters
+# The script will use the JSON file for all processing settings
+
+# File paths on Crux
+PROCESSOR_DIR="${HOME}/Processor"
+VENV_PATH="${HOME}/xrd_env"
+GSAS2DIR="${HOME}/GSASII"
+
+# Data directory (adjust to your data location on Crux)
+# Expected structure: Images/, Refs/, Zarr/ subdirectories
+DATA_DIR="${HOME}/xrd_data"
+
+# Performance monitoring (set to 1 to enable detailed timing)
+ENABLE_PROFILING=0
+
+# ============================================================================
+# SYSTEM CONFIGURATION (typically no changes needed)
+# ============================================================================
+
+# Load required modules (if available on Crux)
+# module use /soft/modulefiles
+# module load spack-pe-base
+
+# Set up environment
+cd "${PROCESSOR_DIR}" || exit 1
+
+echo "======================================================================="
+echo "Crux XRD Processing - PRODUCTION MODE"
+echo "======================================================================="
+echo "Job ID: ${PBS_JOBID}"
+echo "Job Name: ${PBS_JOBNAME}"
+echo "Queue: ${PBS_QUEUE}"
+echo "Project: ${PBS_ACCOUNT}"
+echo "Walltime requested: $(echo ${PBS_WALLTIME} | awk '{print $1/3600}') hours"
+echo "Nodes requested: $(cat ${PBS_NODEFILE} | sort -u | wc -l)"
+echo ""
+echo "Node list:"
+cat "${PBS_NODEFILE}" | sort -u
+echo ""
+echo "Start time: $(date '+%Y-%m-%d %H:%M:%S')"
+echo "Working directory: $(pwd)"
+echo "======================================================================="
+echo ""
+
+# Activate Python environment
+echo "Activating Python environment..."
+source "${VENV_PATH}/bin/activate"
+
+# Configure GSAS-II
+export PYTHONPATH="${GSAS2DIR}:${PYTHONPATH}"
+
+# HPC optimizations (prevent thread oversubscription)
+export OMP_NUM_THREADS=1
+export MKL_NUM_THREADS=1
+export OPENBLAS_NUM_THREADS=1
+export NUMEXPR_NUM_THREADS=1
+
+# Crux proxy settings (for compute nodes)
+export http_proxy="http://proxy.alcf.anl.gov:3128"
+export https_proxy="http://proxy.alcf.anl.gov:3128"
+
+# Dask configuration for large-scale processing
+export DASK_DISTRIBUTED__COMM__TIMEOUTS__CONNECT=120s
+export DASK_DISTRIBUTED__COMM__TIMEOUTS__TCP=120s
+export DASK_DISTRIBUTED__WORKER__MEMORY__TARGET=0.70
+export DASK_DISTRIBUTED__WORKER__MEMORY__SPILL=0.80
+export DASK_DISTRIBUTED__WORKER__MEMORY__PAUSE=0.90
+export DASK_DISTRIBUTED__WORKER__MEMORY__TERMINATE=0.95
+export DASK_DISTRIBUTED__COMM__COMPRESSION=lz4
+
+# Profiling setup
+if [ ${ENABLE_PROFILING} -eq 1 ]; then
+    export DASK_DISTRIBUTED__WORKER__PROFILE__ENABLED=true
+    export DASK_DISTRIBUTED__WORKER__PROFILE__INTERVAL=10s
+    echo "Performance profiling: ENABLED"
+else
+    echo "Performance profiling: DISABLED"
+fi
+
+echo ""
+echo "Environment configured:"
+echo "  Python: $(which python)"
+echo "  Python version: $(python --version)"
+echo "  GSAS-II: ${GSAS2DIR}"
+echo "  Data directory: ${DATA_DIR}"
+echo ""
+
+# System information
+echo "System information:"
+TOTAL_MEMORY=$(free -h | awk '/^Mem:/ {print $2}')
+TOTAL_CORES=$(nproc)
+echo "  Total memory: ${TOTAL_MEMORY}"
+echo "  CPU cores per node: ${TOTAL_CORES}"
+echo ""
+
+# Verify critical imports
+echo "Verifying Python packages..."
+python -c "
+import sys
+import datetime
+print(f'Verification time: {datetime.datetime.now()}')
+print('Testing critical imports...')
+try:
+    import numpy as np
+    print('✓ NumPy', np.__version__)
+    import pandas as pd
+    print('✓ Pandas', pd.__version__)
+    import dask
+    print('✓ Dask', dask.__version__)
+    import dask_mpi
+    print('✓ Dask-MPI available')
+    from mpi4py import MPI
+    print('✓ MPI4Py available')
+    import zarr
+    print('✓ Zarr', zarr.__version__)
+    try:
+        from zarr.codecs import BloscCodec
+        print('✓ Zarr v3 BloscCodec (optimal compression)')
+    except ImportError:
+        print('⚠ Zarr v3 codecs not available (using v2 fallback)')
+    import G2script
+    print('✓ GSAS-II available')
+    import fabio
+    print('✓ FabIO', fabio.__version__)
+    print('All imports successful!')
+except ImportError as e:
+    print('✗ Import failed:', e)
+    sys.exit(1)
+" || exit 1
+
+echo ""
+echo "======================================================================="
+echo "Starting Dask-MPI Processing"
+echo "======================================================================="
+echo ""
+
+# Get MPI configuration from PBS
+NUM_NODES=$(cat ${PBS_NODEFILE} | sort -u | wc -l)
+TOTAL_RANKS=$((NUM_NODES))  # One rank per node for Dask-MPI
+
+echo "MPI Configuration:"
+echo "  Nodes: ${NUM_NODES}"
+echo "  Total MPI ranks: ${TOTAL_RANKS}"
+echo "  Ranks per node: 1"
+echo "  Expected Dask workers: $((TOTAL_RANKS - 2))"
+echo ""
+echo "Expected performance:"
+if [ ${NUM_NODES} -le 8 ]; then
+    echo "  Speedup: ~${NUM_NODES}x vs single node"
+elif [ ${NUM_NODES} -le 32 ]; then
+    SPEEDUP=$((NUM_NODES * 75 / 100))
+    echo "  Speedup: ~${SPEEDUP}x vs single node (75% efficiency)"
+else
+    SPEEDUP=$((NUM_NODES * 60 / 100))
+    echo "  Speedup: ~${SPEEDUP}x vs single node (60% efficiency)"
+fi
+echo ""
+
+# Check for submitted_values.json
+if [ ! -f "XRD/submitted_values.json" ]; then
+    echo "ERROR: submitted_values.json not found!"
+    echo "Please create this file with your processing parameters"
+    echo "See docs/CRUX_DEPLOYMENT.md for format details"
+    exit 1
+fi
+
+echo "Configuration file: XRD/submitted_values.json"
+echo "Configuration preview:"
+python -c "
+import json
+with open('XRD/submitted_values.json', 'r') as f:
+    config = json.load(f)
+print(f\"  Sample: {config.get('sample', 'N/A')}\")
+print(f\"  Setting: {config.get('setting', 'N/A')}\")
+print(f\"  Stage: {config.get('stage', 'N/A')}\")
+print(f\"  Peaks: {len(config.get('active_peaks', []))}\")
+print(f\"  Frame range: {config.get('frames', 'N/A')}\")
+print(f\"  Azimuth range: {config.get('azimuths', 'N/A')}\")
+"
+echo ""
+
+# Start timing
+START_TIME=$(date +%s)
+
+echo "Launching XRD processing with Dask-MPI..."
+echo "Time: $(date '+%Y-%m-%d %H:%M:%S')"
+echo ""
+
+# Execute processing with Dask-MPI
+# mpiexec automatically distributes across nodes from PBS_NODEFILE
+mpiexec -n ${TOTAL_RANKS} \
+    -ppn 1 \
+    --cpu-bind verbose \
+    python XRD/data_visualization.py
+
+EXIT_CODE=$?
+
+# End timing
+END_TIME=$(date +%s)
+ELAPSED_TIME=$((END_TIME - START_TIME))
+HOURS=$((ELAPSED_TIME / 3600))
+MINUTES=$(((ELAPSED_TIME % 3600) / 60))
+SECONDS=$((ELAPSED_TIME % 60))
+
+echo ""
+echo "======================================================================="
+echo "Job Summary"
+echo "======================================================================="
+echo "Exit code: ${EXIT_CODE}"
+echo "End time: $(date '+%Y-%m-%d %H:%M:%S')"
+echo "Elapsed time: ${HOURS}h ${MINUTES}m ${SECONDS}s"
+echo "Nodes used: ${NUM_NODES}"
+echo "Workers: $((TOTAL_RANKS - 2))"
+
+if [ ${EXIT_CODE} -eq 0 ]; then
+    echo "Status: SUCCESS ✓"
+    echo ""
+
+    # Calculate performance metrics
+    echo "Performance metrics:"
+    python -c "
+import json
+try:
+    with open('XRD/submitted_values.json', 'r') as f:
+        config = json.load(f)
+    frames = config.get('frames', [0, 1])
+    if frames[1] == -1:
+        print('  Total frames: Full dataset')
+    else:
+        total_frames = (frames[1] - frames[0]) // config.get('step', 1)
+        elapsed = ${ELAPSED_TIME}
+        if elapsed > 0:
+            rate = total_frames / elapsed
+            print(f'  Total frames processed: {total_frames}')
+            print(f'  Processing rate: {rate:.2f} frames/second')
+            print(f'  Time per frame: {elapsed/total_frames:.2f} seconds')
+except:
+    pass
+"
+    echo ""
+    echo "Output location:"
+    python -c "
+import json
+try:
+    with open('XRD/submitted_values.json', 'r') as f:
+        config = json.load(f)
+    sample = config.get('sample', 'unknown')
+    setting = config.get('setting', 'unknown')
+    stage = config.get('stage', 'unknown')
+    print(f'  Images: {config.get(\"image_folder\", \"N/A\")}/Images/{setting}-{sample}-{stage}/')
+    print(f'  Zarr data: {config.get(\"image_folder\", \"N/A\")}/Zarr/')
+except:
+    print('  Check XRD/submitted_values.json for paths')
+"
+    echo ""
+    echo "Next steps:"
+    echo "  1. Review output heatmaps (PNG files)"
+    echo "  2. Analyze processed data in Zarr directory"
+    echo "  3. Check CSV files for numerical data"
+
+else
+    echo "Status: FAILED ✗"
+    echo ""
+    echo "Troubleshooting:"
+    echo "  1. Check error messages above"
+    echo "  2. Verify submitted_values.json is valid"
+    echo "  3. Check data paths and permissions"
+    echo "  4. Verify GSAS-II installation"
+    echo "  5. Review full output: cat ${HOME}/xrd_prod_${PBS_JOBID}.out"
+    echo "  6. For help: contact [email protected]"
+fi
+
+echo "======================================================================="
+
+# Archive log file
+LOG_ARCHIVE="${HOME}/logs"
+mkdir -p "${LOG_ARCHIVE}"
+cp "${HOME}/xrd_prod_${PBS_JOBID}.out" "${LOG_ARCHIVE}/" 2>/dev/null || true
+
+exit ${EXIT_CODE}

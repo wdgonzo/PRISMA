@@ -1,0 +1,63 @@
+{
+    "sample": "1A1",
+    "setting": "1x50",
+    "stage": "aft",
+    "image_folder": "G:/Data/Mar2023/pilatus/1A1",
+    "control_file": "G:/Data/Mar2023/pilatus/Ceria/Ceria-1x50.imctrl",
+    "mask_file": "G:/Data/Mar2023/pilatus/Ceria/auto_mask.immask",
+    "exposure": "1",
+    "step": 1,
+    "spacing": 5,
+    "frame_start": 0,
+    "frame_end": -1,
+    "az_start": -180,
+    "az_end": 180,
+    "active_peaks": [
+        {
+            "name": "Martensite 211",
+            "miller_index": "211",
+            "position": 8.46,
+            "limits": [
+                8.2,
+                8.8
+            ]
+        },
+        {
+            "name": "Martensite 200",
+            "miller_index": "200",
+            "position": 6.92,
+            "limits": [
+                6.7,
+                7.1
+            ]
+        },
+        {
+            "name": "Martensite 110",
+            "miller_index": "110",
+            "position": 4.88,
+            "limits": [
+                4.2,
+                5.3
+            ]
+        },
+        {
+            "name": "Austenite",
+            "miller_index": "200",
+            "position": 7.79,
+            "limits": [
+                7.6,
+                8.0
+            ]
+        },
+        {
+            "name": "Austenite",
+            "miller_index": "311",
+            "position": 9.13,
+            "limits": [
+                8.93,
+                9.33
+            ]
+        }
+    ],
+    "notes": ""
+}

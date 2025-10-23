@@ -1,0 +1,61 @@
+{
+  "version": "3.0",
+  "window": {
+    "size": [
+      1920,
+      1017
+    ],
+    "position": [
+      -2,
+      -39
+    ]
+  },
+  "analysis_defaults": {
+    "measurement": "strain",
+    "delta_enabled": false,
+    "abs_enabled": false,
+    "pct_enabled": false,
+    "graphing_mode": "heatmap",
+    "colormap": "coolwarm",
+    "vmin": -0.0028,
+    "vmax": 0.0,
+    "auto_scale": true,
+    "range_type": "full",
+    "start_time": 0.0,
+    "end_time": 0.06,
+    "start_frame": 8,
+    "end_frame": 148
+  },
+  "batch_analysis": {
+    "frame_start": 138,
+    "frame_end": 148,
+    "azimuth_ranges": [
+      {
+        "name": "(+) Lateral",
+        "lower": -5.0,
+        "upper": 5.0
+      },
+      {
+        "name": "(+) Normal",
+        "lower": 85.0,
+        "upper": 95.0
+      },
+      {
+        "name": "(-) Lateral",
+        "lower": -18.0,
+        "upper": 20.0
+      },
+      {
+        "name": "(-) Normal",
+        "lower": -95.0,
+        "upper": -85.0
+      }
+    ]
+  },
+  "paths": {
+    "last_zarr_folder": "//ascend.egs.anl.gov/groups/ricardo_and_wind/AM_Work/APS-ARL/Luke Davenport-Fall 2025/Process Data/251002"
+  },
+  "ui_preferences": {
+    "gallery_view_mode": "grid"
+  }
+}

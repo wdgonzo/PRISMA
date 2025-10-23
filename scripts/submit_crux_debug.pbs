@@ -1,0 +1,190 @@
+#!/bin/bash
+################################################################################
+# Crux Debug Job Script
+# ======================
+# Quick testing job for XRD processing on ALCF Crux supercomputer
+#
+# Queue: debug (1-8 nodes, up to 2 hours)
+# Purpose: Testing and development with fast turnaround
+#
+# Usage:
+#   1. Edit the USER CONFIGURATION section below
+#   2. Submit: qsub scripts/submit_crux_debug.pbs
+#   3. Monitor: qstat -u $USER
+#   4. Check output: tail -f xrd_debug_*.o*
+#
+# Author: William Gonzalez
+# Date: January 2025
+################################################################################
+
+#PBS -N xrd_debug
+#PBS -l select=4:system=crux
+#PBS -l place=scatter
+#PBS -l walltime=02:00:00
+#PBS -q debug
+#PBS -A YourProjectName
+#PBS -j oe
+#PBS -o ${HOME}/xrd_debug_${PBS_JOBID}.out
+#PBS -r y
+
+# ============================================================================
+# USER CONFIGURATION - EDIT THESE VARIABLES
+# ============================================================================
+
+# Project allocation (REQUIRED - get from ALCF)
+# Replace YourProjectName in #PBS -A above with your actual project name
+
+# Processing parameters (edit submitted_values.json or set here)
+# These will be used to locate your submitted_values.json file
+SAMPLE_NAME="test_sample"
+SETTING_NAME="debug"
+STAGE_NAME="BEF"
+
+# File paths on Crux
+PROCESSOR_DIR="${HOME}/Processor"
+VENV_PATH="${HOME}/xrd_env"
+GSAS2DIR="${HOME}/GSASII"
+
+# Data directory (adjust to your data location on Crux)
+# Expected structure: Images/, Refs/, Zarr/ subdirectories
+DATA_DIR="${HOME}/xrd_data"
+
+# ============================================================================
+# SYSTEM CONFIGURATION (typically no changes needed)
+# ============================================================================
+
+# Load required modules (if available on Crux)
+# module use /soft/modulefiles
+# module load spack-pe-base
+
+# Set up environment
+cd "${PROCESSOR_DIR}" || exit 1
+
+echo "======================================================================="
+echo "Crux XRD Processing - DEBUG MODE"
+echo "======================================================================="
+echo "Job ID: ${PBS_JOBID}"
+echo "Job Name: ${PBS_JOBNAME}"
+echo "Queue: ${PBS_QUEUE}"
+echo "Nodes: $(cat ${PBS_NODEFILE} | wc -l)"
+echo "Node list:"
+cat "${PBS_NODEFILE}"
+echo "Start time: $(date)"
+echo "Working directory: $(pwd)"
+echo "======================================================================="
+echo ""
+
+# Activate Python environment
+echo "Activating Python environment..."
+source "${VENV_PATH}/bin/activate"
+
+# Configure GSAS-II
+export PYTHONPATH="${GSAS2DIR}:${PYTHONPATH}"
+
+# HPC optimizations (prevent thread oversubscription)
+export OMP_NUM_THREADS=1
+export MKL_NUM_THREADS=1
+export OPENBLAS_NUM_THREADS=1
+export NUMEXPR_NUM_THREADS=1
+
+# Crux proxy settings (for compute nodes)
+export http_proxy="http://proxy.alcf.anl.gov:3128"
+export https_proxy="http://proxy.alcf.anl.gov:3128"
+
+# Dask configuration
+export DASK_DISTRIBUTED__COMM__TIMEOUTS__CONNECT=60s
+export DASK_DISTRIBUTED__COMM__TIMEOUTS__TCP=60s
+
+echo "Environment configured:"
+echo "  Python: $(which python)"
+echo "  Python version: $(python --version)"
+echo "  GSAS-II: ${GSAS2DIR}"
+echo "  Data directory: ${DATA_DIR}"
+echo ""
+
+# Verify critical imports
+echo "Verifying Python packages..."
+python -c "
+import sys
+print('Testing critical imports...')
+try:
+    import numpy as np
+    print('✓ NumPy', np.__version__)
+    import dask
+    print('✓ Dask', dask.__version__)
+    import dask_mpi
+    print('✓ Dask-MPI available')
+    from mpi4py import MPI
+    print('✓ MPI4Py available')
+    import zarr
+    print('✓ Zarr', zarr.__version__)
+    import G2script
+    print('✓ GSAS-II available')
+    print('All imports successful!')
+except ImportError as e:
+    print('✗ Import failed:', e)
+    sys.exit(1)
+" || exit 1
+
+echo ""
+echo "======================================================================="
+echo "Starting Dask-MPI Processing"
+echo "======================================================================="
+echo ""
+
+# Get MPI configuration from PBS
+NUM_NODES=$(cat ${PBS_NODEFILE} | sort -u | wc -l)
+TOTAL_RANKS=$((NUM_NODES))  # One rank per node for Dask-MPI
+
+echo "MPI Configuration:"
+echo "  Nodes: ${NUM_NODES}"
+echo "  Total ranks: ${TOTAL_RANKS}"
+echo "  Ranks per node: 1"
+echo ""
+
+# Run processing with Dask-MPI
+# Note: dask-mpi automatically sets up scheduler (1) + client (1) + workers (N-2)
+# With 4 nodes: 1 scheduler + 1 client + 2 workers
+
+echo "Launching XRD processing with Dask-MPI..."
+echo "Expected configuration: 1 scheduler + 1 client + $((TOTAL_RANKS - 2)) workers"
+echo ""
+
+# Execute processing
+mpiexec -n ${TOTAL_RANKS} \
+    -ppn 1 \
+    --cpu-bind verbose \
+    python XRD/data_visualization.py
+
+EXIT_CODE=$?
+
+echo ""
+echo "======================================================================="
+echo "Job Summary"
+echo "======================================================================="
+echo "Exit code: ${EXIT_CODE}"
+echo "End time: $(date)"
+
+if [ ${EXIT_CODE} -eq 0 ]; then
+    echo "Status: SUCCESS ✓"
+    echo ""
+    echo "Output files should be in:"
+    echo "  ${DATA_DIR}/Images/${SETTING_NAME}-${SAMPLE_NAME}-${STAGE_NAME}/"
+    echo ""
+    echo "Next steps:"
+    echo "  1. Review output heatmaps (PNG files)"
+    echo "  2. Check processed data in Zarr directory"
+    echo "  3. If successful, scale up with submit_crux_production.pbs"
+else
+    echo "Status: FAILED ✗"
+    echo ""
+    echo "Troubleshooting:"
+    echo "  1. Check error messages above"
+    echo "  2. Verify submitted_values.json exists and is valid"
+    echo "  3. Check data paths and permissions"
+    echo "  4. Review full output: cat ${HOME}/xrd_debug_${PBS_JOBID}.out"
+fi
+
+echo "======================================================================="
+
+exit ${EXIT_CODE}

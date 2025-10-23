@@ -1,0 +1,58 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+*.whl
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Data files
+*.zarr/
+*.tif
+*.tiff
+*.edf
+*.GE5
+*.GE1
+*.GE2
+*.GE3
+*.GE4
+
+# Output files
+*.png
+*.jpg
+*.jpeg
+
+# Documentation (AI context - not for users)
+.claude/
+IMPLEMENTATION_SUMMARY.md
+
+# OS
+.DS_Store
+Thumbs.db
+*.tmp
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Environment
+venv/
+env/
+ENV/
+.venv/
