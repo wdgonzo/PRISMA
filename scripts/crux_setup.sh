@@ -343,10 +343,9 @@ module load cray-python/3.11.7
 # Activate virtual environment
 source "\${SOFTWARE_DIR}/venv/bin/activate"
 
-# GSAS-II environment (for direct imports without G2script)
-export GSAS2DIR="\${SOFTWARE_DIR}/GSAS-II/GSASII"
-# Add GSAS-II root to PYTHONPATH (allows: from GSASII import GSASIIscriptable)
-export PYTHONPATH="\${SOFTWARE_DIR}/GSAS-II:\${PYTHONPATH}"
+# GSAS-II environment (matches official docs: sys.path.insert(0,'/path/to/GSAS-II'))
+export GSAS2DIR="\${SOFTWARE_DIR}/GSAS-II"
+export PYTHONPATH="\${GSAS2DIR}:\${PYTHONPATH}"
 
 # Crux proxy settings (for compute nodes)
 export http_proxy="http://proxy.alcf.anl.gov:3128"

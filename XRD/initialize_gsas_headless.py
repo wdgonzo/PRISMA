@@ -178,7 +178,8 @@ def initialize_gsas_scriptable(gsasii_dir):
     if gsas_root not in sys.path:
         sys.path.insert(0, gsas_root)
 
-    os.environ['GSAS2DIR'] = gsasii_dir
+    # Set GSAS2DIR to root directory (matches official docs)
+    os.environ['GSAS2DIR'] = gsas_root
 
     try:
         print("  Importing GSASII.GSASIIscriptable...")
@@ -186,13 +187,28 @@ def initialize_gsas_scriptable(gsasii_dir):
 
         print("  ✓ Direct import successful!")
         print()
-        print("✓ GSAS-II is ready for use with direct imports")
-        print()
-        print("Your code will use:")
-        print("  from GSASII import GSASIIscriptable as G2script")
-        print()
-        print("Make sure PYTHONPATH includes GSAS-II root:")
-        print(f"  export PYTHONPATH={gsas_root}:$PYTHONPATH")
+
+        # Install G2script shortcut (run once per venv - official method from docs)
+        print("Installing G2script shortcut (creates G2script.py in site-packages)...")
+        print("  This only needs to be done once per virtual environment.")
+        try:
+            G2sc.installScriptingShortcut()
+            print("  ✓ G2script shortcut installed successfully!")
+            print()
+            print("✓ GSAS-II is ready for use")
+            print()
+            print("You can now use:")
+            print("  import G2script")
+            print()
+            print("in any Python script without modifying sys.path")
+        except Exception as e:
+            print(f"  ⚠ Shortcut installation warning: {e}")
+            print()
+            print("  Shortcut installation failed, but direct import still works:")
+            print("  from GSASII import GSASIIscriptable as G2script")
+            print()
+            print("  Make sure PYTHONPATH includes GSAS-II root:")
+            print(f"  export PYTHONPATH={gsas_root}:$PYTHONPATH")
         print()
 
         return True
@@ -228,7 +244,7 @@ def create_environment_info(gsasii_dir):
     Args:
         gsasii_dir: Path to GSASII subdirectory
     """
-    gsas_base = os.path.dirname(gsasii_dir)
+    gsas_root = os.path.dirname(gsasii_dir)
 
     print("=" * 70)
     print("GSAS-II Environment Setup")
@@ -236,12 +252,12 @@ def create_environment_info(gsasii_dir):
     print()
     print("Add these lines to your ~/.bashrc or environment activation script:")
     print()
-    print(f"    export GSAS2DIR={gsas_base}/GSASII")
+    print(f"    export GSAS2DIR={gsas_root}")
     print(f"    export PYTHONPATH=${{GSAS2DIR}}:${{PYTHONPATH}}")
     print()
     print("To apply immediately:")
     print()
-    print(f"    export GSAS2DIR={gsas_base}/GSASII")
+    print(f"    export GSAS2DIR={gsas_root}")
     print(f"    export PYTHONPATH=${{GSAS2DIR}}:${{PYTHONPATH}}")
     print()
 

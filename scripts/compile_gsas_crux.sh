@@ -284,12 +284,12 @@ if [ -d "${GSAS_SOURCE_DIR}/GSASII/bin" ]; then
     PYVER=$(python3 -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')")
     NPVER=$(python3 -c "import numpy; v=numpy.__version__.split('.'); print(f'{v[0]}.{v[1]}')")
 
-    # Platform detection (lin for Linux, dar for Darwin/macOS, win for Windows)
+    # Platform detection (must match GSAS-II GetBinaryPrefix() expectations)
     case "$(uname -s)" in
-        Linux*)   PLATFORM="lin";;
-        Darwin*)  PLATFORM="dar";;
+        Linux*)   PLATFORM="linux";;
+        Darwin*)  PLATFORM="mac";;
         CYGWIN*|MINGW*|MSYS*) PLATFORM="win";;
-        *)        PLATFORM="lin";;  # Default to Linux
+        *)        PLATFORM="linux";;  # Default to Linux
     esac
 
     PLATFORM_DIR="${PLATFORM}_64_p${PYVER}_n${NPVER}"
@@ -342,12 +342,12 @@ echo "-----------------------------------------------------------------------"
 PYVER=$(python3 -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')")
 NPVER=$(python3 -c "import numpy; v=numpy.__version__.split('.'); print(f'{v[0]}.{v[1]}')")
 
-# Platform detection
+# Platform detection (must match GSAS-II GetBinaryPrefix() expectations)
 case "$(uname -s)" in
-    Linux*)   PLATFORM="lin";;
-    Darwin*)  PLATFORM="dar";;
+    Linux*)   PLATFORM="linux";;
+    Darwin*)  PLATFORM="mac";;
     CYGWIN*|MINGW*|MSYS*) PLATFORM="win";;
-    *)        PLATFORM="lin";;
+    *)        PLATFORM="linux";;
 esac
 
 PLATFORM_DIR="${PLATFORM}_64_p${PYVER}_n${NPVER}"
