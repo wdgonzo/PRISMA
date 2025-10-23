@@ -150,69 +150,71 @@ def get_gsas_directory_interactive():
 
 def initialize_gsas_scriptable(gsasii_dir):
     """
-    Initialize GSASIIscriptable by installing the shortcut.
+    Validate GSAS-II setup for headless/HPC environments.
+    For Option 2 approach: direct imports via PYTHONPATH (no G2script shortcut needed).
 
     Args:
         gsasii_dir: Path to GSASII subdirectory
 
     Returns:
-        bool: True if successful, False otherwise
+        bool: True if setup is valid, False otherwise
     """
     print("-" * 70)
-    print("Installing GSASIIscriptable shortcut...")
+    print("Validating GSAS-II setup for headless/HPC use...")
     print("-" * 70)
     print()
 
-    # Add GSASII subdirectory to sys.path (where GSASIIpath.py lives)
-    if gsasii_dir not in sys.path:
-        sys.path.insert(0, gsasii_dir)
-        print(f"Added to sys.path: {gsasii_dir}")
+    gsas_root = os.path.dirname(gsasii_dir)
+
+    print("✓ GSAS-II files validated")
+    print(f"  GSAS-II root: {gsas_root}")
+    print(f"  GSASII package: {gsasii_dir}")
+    print()
+
+    # Test direct import (Option 2 approach)
+    print("Testing direct import (Option 2 - no G2script shortcut needed)...")
+    print(f"  Adding {gsas_root} to sys.path")
+
+    if gsas_root not in sys.path:
+        sys.path.insert(0, gsas_root)
+
+    os.environ['GSAS2DIR'] = gsasii_dir
 
     try:
-        # Import GSASIIpath first to set binary path
-        print("Importing GSASIIpath...")
-        import GSASIIpath
+        print("  Importing GSASII.GSASIIscriptable...")
+        from GSASII import GSASIIscriptable as G2sc
 
-        # Set binary path (detects compiled binaries)
-        print("Setting binary path...")
-        GSASIIpath.SetBinaryPath(showConfigMsg=True)
-        print(f"Binary path: {GSASIIpath.binaryPath}")
+        print("  ✓ Direct import successful!")
         print()
-
-        # Import GSAS-II scriptable module
-        print("Importing GSASIIscriptable...")
-        import GSASIIscriptable as G2sc
-
-        print("✓ GSASIIscriptable imported successfully")
+        print("✓ GSAS-II is ready for use with direct imports")
         print()
-
-        # Install the scripting shortcut
-        print("Installing scripting shortcut (creates G2script.py)...")
-        G2sc.installScriptingShortcut()
-
+        print("Your code will use:")
+        print("  from GSASII import GSASIIscriptable as G2script")
         print()
-        print("✓ GSASIIscriptable shortcut installed successfully!")
+        print("Make sure PYTHONPATH includes GSAS-II root:")
+        print(f"  export PYTHONPATH={gsas_root}:$PYTHONPATH")
         print()
 
         return True
 
     except ImportError as e:
-        print(f"✗ Failed to import GSAS-II modules: {e}")
+        print(f"  ✗ Import failed: {e}")
         print()
-        print("This usually means:")
-        print("  1. GSAS-II is not properly installed")
-        print("  2. Required Python packages are missing")
-        print("  3. Binary files are not compiled")
+        print("Troubleshooting:")
+        print("  1. Verify GSAS-II is properly installed")
+        print("  2. Check that binaries are compiled (see GSASII-bin/)")
+        print("  3. Ensure PYTHONPATH includes GSAS-II root directory")
         print()
         print("Debug information:")
-        print(f"  sys.path includes: {gsasii_dir}")
-        print(f"  Looking for: {gsasii_dir}/GSASIIpath.py")
-        print(f"  File exists: {os.path.exists(os.path.join(gsasii_dir, 'GSASIIpath.py'))}")
+        print(f"  GSAS-II root: {gsas_root}")
+        print(f"  GSASII package: {gsasii_dir}")
+        print(f"  GSASIIpath.py exists: {os.path.exists(os.path.join(gsasii_dir, 'GSASIIpath.py'))}")
+        print(f"  GSASIIscriptable.py exists: {os.path.exists(os.path.join(gsasii_dir, 'GSASIIscriptable.py'))}")
         print()
         return False
 
     except Exception as e:
-        print(f"✗ Error during installation: {e}")
+        print(f"  ✗ Unexpected error: {e}")
         print()
         import traceback
         traceback.print_exc()
@@ -256,28 +258,41 @@ def test_import():
     print("-" * 70)
     print()
 
+    # Test both import methods (Option 1: G2script shortcut, Option 2: direct import)
+    print("Testing import methods...")
+    print()
+
+    # Try G2script shortcut first (if installed via GUI)
     try:
         import G2script as G2sc
-        print("✓ G2script imported successfully!")
+        print("✓ G2script shortcut available (GUI-installed)")
         print(f"  Location: {G2sc.__file__}")
-        print()
-
-        # Try to show versions
+        method = "G2script shortcut"
+    except ImportError:
+        # Try direct import (Option 2)
         try:
-            G2sc.ShowVersions()
-        except:
-            pass  # ShowVersions might print, which is fine
+            from GSASII import GSASIIscriptable as G2sc
+            print("✓ Direct import successful (headless/HPC mode)")
+            print(f"  Location: {G2sc.__file__}")
+            method = "Direct import"
+        except ImportError as e:
+            print(f"✗ Both import methods failed: {e}")
+            print()
+            print("Make sure PYTHONPATH includes GSAS-II root directory:")
+            print("  export PYTHONPATH=/path/to/GSAS-II:$PYTHONPATH")
+            print()
+            return False
 
-        return True
+    print(f"  Using: {method}")
+    print()
 
-    except ImportError as e:
-        print(f"✗ Failed to import G2script: {e}")
-        print()
-        print("This is expected if you haven't sourced your environment yet.")
-        print("After adding GSAS2DIR to your environment and sourcing ~/.bashrc,")
-        print("you should be able to import G2script.")
-        print()
-        return False
+    # Try to show versions
+    try:
+        G2sc.ShowVersions()
+    except:
+        pass  # ShowVersions might print, which is fine
+
+    return True
 
 
 def main():
@@ -302,7 +317,7 @@ def main():
 
     if not success:
         print("=" * 70)
-        print("INITIALIZATION FAILED")
+        print("VALIDATION FAILED")
         print("=" * 70)
         print()
         print("Please check the error messages above and try again.")
@@ -316,13 +331,18 @@ def main():
     test_import()
 
     print("=" * 70)
-    print("INITIALIZATION COMPLETE")
+    print("GSAS-II SETUP COMPLETE (Option 2: Direct Import)")
     print("=" * 70)
     print()
+    print("Your code is configured to import GSAS-II directly (no shortcut needed):")
+    print("  - Works on both local and HPC systems")
+    print("  - Tries G2script shortcut first (if GUI-installed)")
+    print("  - Falls back to direct import for headless environments")
+    print()
     print("Next steps:")
-    print("  1. Add environment variables to your ~/.bashrc (see above)")
-    print("  2. Source your bashrc: source ~/.bashrc")
-    print("  3. Test import: python -c 'import G2script; print(G2script.__file__)'")
+    print("  1. Source your environment: source activate_xrd.sh")
+    print("  2. Test import: python -c 'from GSASII import GSASIIscriptable; print(\"OK\")'")
+    print("  3. Run your processing code as normal")
     print()
 
 

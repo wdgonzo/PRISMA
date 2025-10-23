@@ -20,7 +20,13 @@ import json
 from dataclasses import dataclass
 from typing import List, Dict, Any, Optional
 from datetime import datetime
-import G2script
+
+# Import G2script - try shortcut first (local GUI setup), fallback to direct import (HPC)
+try:
+    import G2script  # GUI-installed shortcut (local setups)
+except ImportError:
+    from GSASII import GSASIIscriptable as G2script  # Direct import (headless/HPC)
+
 from XRD.core.image_loader import ImageLoader, ImageFrameInfo, validate_frame_ordering
 import matplotlib
 matplotlib.use('Agg')  # CRITICAL: Set non-interactive backend BEFORE importing pyplot

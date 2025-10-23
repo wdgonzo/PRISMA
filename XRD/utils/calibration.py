@@ -20,8 +20,13 @@ Version: Beta 0.1
 
 import os
 import glob
-import G2script as G2sc
 from typing import Tuple, Dict, Optional
+
+# Import G2script - try shortcut first (local GUI setup), fallback to direct import (HPC)
+try:
+    import G2script as G2sc  # GUI-installed shortcut (local setups)
+except ImportError:
+    from GSASII import GSASIIscriptable as G2sc  # Direct import (headless/HPC)
 
 
 def generate_calibration_filename(
