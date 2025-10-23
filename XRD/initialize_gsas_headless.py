@@ -163,11 +163,10 @@ def initialize_gsas_scriptable(gsasii_dir):
     print("-" * 70)
     print()
 
-    # Add GSAS-II root directory (parent of GSASII) to sys.path
-    gsas_root = os.path.dirname(gsasii_dir)
-    if gsas_root not in sys.path:
-        sys.path.insert(0, gsas_root)
-        print(f"Added to sys.path: {gsas_root}")
+    # Add GSASII subdirectory to sys.path (where GSASIIpath.py lives)
+    if gsasii_dir not in sys.path:
+        sys.path.insert(0, gsasii_dir)
+        print(f"Added to sys.path: {gsasii_dir}")
 
     try:
         # Import GSASIIpath first to set binary path
@@ -206,8 +205,9 @@ def initialize_gsas_scriptable(gsasii_dir):
         print("  3. Binary files are not compiled")
         print()
         print("Debug information:")
-        print(f"  sys.path includes: {gsas_root}")
-        print(f"  Expected GSASII at: {gsasii_dir}")
+        print(f"  sys.path includes: {gsasii_dir}")
+        print(f"  Looking for: {gsasii_dir}/GSASIIpath.py")
+        print(f"  File exists: {os.path.exists(os.path.join(gsasii_dir, 'GSASIIpath.py'))}")
         print()
         return False
 
