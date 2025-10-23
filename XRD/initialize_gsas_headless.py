@@ -67,17 +67,20 @@ def validate_gsas_directory(gsas_dir):
         return False, None, f"Missing required files in {gsasii_dir}: {', '.join(missing_files)}"
 
     # Check for compiled binaries (optional but recommended)
-    bin_dir = os.path.join(gsasii_dir, 'bin')
+    # GSAS-II expects binaries at GSAS-II/GSASII-bin/ (repository root), not GSASII/bin/
+    gsas_root = os.path.dirname(gsasii_dir)
+    bin_dir = os.path.join(gsas_root, 'GSASII-bin')
+
     if os.path.isdir(bin_dir):
         # Look for any platform-specific binary directories
         bin_subdirs = [d for d in os.listdir(bin_dir) if os.path.isdir(os.path.join(bin_dir, d))]
         if bin_subdirs:
-            print(f"  ℹ Found compiled binaries in: {', '.join(bin_subdirs)}")
+            print(f"  ℹ Found compiled binaries in GSASII-bin/: {', '.join(bin_subdirs)}")
         else:
-            print(f"  ⚠ Warning: bin/ directory exists but no compiled binaries found")
+            print(f"  ⚠ Warning: GSASII-bin/ exists but no compiled binaries found")
             print(f"    You may need to compile GSAS-II for your platform")
     else:
-        print(f"  ⚠ Warning: No bin/ directory found - GSAS-II may not be compiled")
+        print(f"  ⚠ Warning: No GSASII-bin/ directory found - GSAS-II may not be compiled")
         print(f"    Run: bash scripts/compile_gsas_crux.sh {gsas_dir}")
 
     return True, gsasii_dir, None

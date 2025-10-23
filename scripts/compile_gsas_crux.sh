@@ -42,7 +42,7 @@ echo "Configuration:"
 echo "  Software directory: ${SOFTWARE_DIR}"
 echo "  GSAS-II source: ${GSAS_SOURCE_DIR}"
 echo "  Build directory: ${BUILD_DIR}"
-echo "  Install target: ${GSAS_SOURCE_DIR}/GSASII/bin/"
+echo "  Install target: ${GSAS_SOURCE_DIR}/GSASII-bin/"
 echo ""
 
 # Step 1: Verify GSAS-II source exists
@@ -269,16 +269,47 @@ meson compile -C "${BUILD_DIR_NAME}" system-install || {
     exit 1
 }
 
-echo -e "${GREEN}✓ Binaries installed${NC}"
+echo -e "${GREEN}✓ Binaries compiled and installed to GSASII/bin/${NC}"
 echo ""
 
-# Step 6: Verify installation
-echo "Step 6: Verifying binary installation..."
+# Step 6: Move binaries to correct location (GSASII-bin, not GSASII/bin)
+echo "Step 6: Moving binaries to GSASII-bin/ (expected by GSAS-II)..."
+echo "-----------------------------------------------------------------------"
+
+# Meson installs to GSASII/bin/, but GSAS-II expects binaries at GSASII-bin/
+# (See pathHacking.py - searches for GSASII-bin at repository root)
+
+if [ -d "${GSAS_SOURCE_DIR}/GSASII/bin" ]; then
+    echo "Source: ${GSAS_SOURCE_DIR}/GSASII/bin/"
+    echo "Target: ${GSAS_SOURCE_DIR}/GSASII-bin/"
+
+    # Create GSASII-bin if it doesn't exist
+    mkdir -p "${GSAS_SOURCE_DIR}/GSASII-bin"
+
+    # Move binaries to correct location
+    echo "Moving binary directories..."
+    mv "${GSAS_SOURCE_DIR}/GSASII/bin/"* "${GSAS_SOURCE_DIR}/GSASII-bin/" || {
+        echo -e "${YELLOW}⚠ Move failed, trying copy instead...${NC}"
+        cp -r "${GSAS_SOURCE_DIR}/GSASII/bin/"* "${GSAS_SOURCE_DIR}/GSASII-bin/"
+    }
+
+    # Remove old bin directory
+    rm -rf "${GSAS_SOURCE_DIR}/GSASII/bin"
+
+    echo -e "${GREEN}✓ Binaries moved to GSASII-bin/${NC}"
+else
+    echo -e "${YELLOW}⚠ No binaries found at GSASII/bin/ - nothing to move${NC}"
+fi
+
+echo ""
+
+# Step 7: Verify installation
+echo "Step 7: Verifying binary installation..."
 echo "-----------------------------------------------------------------------"
 
 PYVER=$(python3 -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')")
 NPVER=$(python3 -c "import numpy; v=numpy.__version__.split('.'); print(f'{v[0]}.{v[1]}')")
-BINARY_DIR="${GSAS_SOURCE_DIR}/GSASII/bin/linux_64_p${PYVER}_n${NPVER}"
+BINARY_DIR="${GSAS_SOURCE_DIR}/GSASII-bin/linux_64_p${PYVER}_n${NPVER}"
 
 echo "Expected binary directory: ${BINARY_DIR}"
 
@@ -307,23 +338,27 @@ else
     echo "Searching for binaries..."
 
     # Try to find where binaries were installed
-    if [ -d "${GSAS_SOURCE_DIR}/GSASII/bin" ]; then
-        echo "Contents of GSASII/bin/:"
-        ls -la "${GSAS_SOURCE_DIR}/GSASII/bin"
+    if [ -d "${GSAS_SOURCE_DIR}/GSASII-bin" ]; then
+        echo "Contents of GSASII-bin/:"
+        ls -la "${GSAS_SOURCE_DIR}/GSASII-bin"
 
         # Find any .so files
         echo ""
         echo "Searching for .so files..."
-        find "${GSAS_SOURCE_DIR}/GSASII/bin" -type f -name "*.so" 2>/dev/null | head -5 || echo "  No .so files found"
+        find "${GSAS_SOURCE_DIR}/GSASII-bin" -type f -name "*.so" 2>/dev/null | head -5 || echo "  No .so files found"
     else
-        echo -e "${RED}✗ GSASII/bin/ directory not found${NC}"
+        echo -e "${RED}✗ GSASII-bin/ directory not found${NC}"
+        echo "Checking if binaries are still in wrong location (GSASII/bin/):"
+        if [ -d "${GSAS_SOURCE_DIR}/GSASII/bin" ]; then
+            echo -e "${YELLOW}  ⚠ Found binaries in GSASII/bin/ - they should be moved to GSASII-bin/${NC}"
+        fi
     fi
 fi
 
 echo ""
 
-# Step 7: Test import
-echo "Step 7: Testing GSAS-II binary loading..."
+# Step 8: Test import
+echo "Step 8: Testing GSAS-II binary loading..."
 echo "-----------------------------------------------------------------------"
 
 export GSAS2DIR="${GSAS_SOURCE_DIR}/GSASII"
