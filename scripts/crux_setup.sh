@@ -55,10 +55,17 @@ if [[ $(hostname) != crux-login-* ]]; then
     fi
 fi
 
-echo "Step 1: Loading Crux Python module..."
+echo "Step 1: Loading Crux modules..."
 echo "-----------------------------------------------------------------------"
 
-# Load cray-python module (required for NumPy 2.x support)
+# Load GNU programming environment (required for compilers)
+echo "Loading PrgEnv-gnu..."
+module load PrgEnv-gnu 2>&1 || {
+    echo -e "${YELLOW}WARNING: Failed to load PrgEnv-gnu${NC}"
+    echo "This may be required for GSAS-II compilation"
+}
+
+# Load cray-python module (required for NumPy 1.26 support)
 echo "Loading cray-python/3.11.7..."
 module load cray-python/3.11.7 2>&1 || {
     echo -e "${RED}ERROR: Failed to load cray-python/3.11.7${NC}"
@@ -122,6 +129,8 @@ echo "-----------------------------------------------------------------------"
 # NumPy 1.26 required for GSAS-II compatibility
 PACKAGES=(
     "numpy==1.26"
+    "meson"
+    "ninja"
     "cython"
     "pybind11"
     "pandas"
@@ -163,7 +172,43 @@ done
 echo -e "${GREEN}✓ All packages installed${NC}"
 echo ""
 
-echo "Step 5: Verifying critical imports..."
+echo "Step 5: Verifying build tools (meson/ninja)..."
+echo "-----------------------------------------------------------------------"
+
+# Rehash to pick up newly installed executables
+hash -r 2>/dev/null || true
+
+# Check meson
+if command -v meson &> /dev/null; then
+    MESON_VERSION=$(meson --version)
+    echo -e "${GREEN}✓ meson found: version ${MESON_VERSION}${NC}"
+else
+    echo -e "${RED}✗ meson not found in PATH${NC}"
+    echo "  Expected location: ${VENV_PATH}/bin/meson"
+    if [ -f "${VENV_PATH}/bin/meson" ]; then
+        echo "  File exists but not in PATH - trying to add..."
+        export PATH="${VENV_PATH}/bin:${PATH}"
+        hash -r 2>/dev/null || true
+        if command -v meson &> /dev/null; then
+            echo -e "${GREEN}✓ meson now accessible${NC}"
+        else
+            echo -e "${RED}✗ Still cannot find meson - manual PATH fix needed${NC}"
+        fi
+    else
+        echo -e "${RED}✗ meson binary not found - installation may have failed${NC}"
+    fi
+fi
+
+# Check ninja
+if command -v ninja &> /dev/null; then
+    NINJA_VERSION=$(ninja --version)
+    echo -e "${GREEN}✓ ninja found: version ${NINJA_VERSION}${NC}"
+else
+    echo -e "${YELLOW}⚠ ninja not found (optional, but recommended for faster builds)${NC}"
+fi
+echo ""
+
+echo "Step 6: Verifying critical imports..."
 echo "-----------------------------------------------------------------------"
 
 python3 << 'EOF'
@@ -217,7 +262,7 @@ else
 fi
 echo ""
 
-echo "Step 6: Compiling GSAS-II from source..."
+echo "Step 7: Compiling GSAS-II from source..."
 echo "-----------------------------------------------------------------------"
 
 # Default GSAS-II location (same level as PRISMA)
@@ -261,7 +306,7 @@ fi
 
 echo ""
 
-echo "Step 7: Initializing GSAS-II scripting..."
+echo "Step 8: Initializing GSAS-II scripting..."
 echo "-----------------------------------------------------------------------"
 
 # Only run if GSAS-II was compiled or exists
@@ -278,7 +323,7 @@ fi
 
 echo ""
 
-echo "Step 8: Creating activation helper script..."
+echo "Step 9: Creating activation helper script..."
 echo "-----------------------------------------------------------------------"
 
 # Create activation script
@@ -291,7 +336,8 @@ cat > "${ACTIVATE_SCRIPT}" << ACTIVATE_EOF
 SCRIPT_DIR="\$(cd "\$(dirname "\${BASH_SOURCE[0]}")" && pwd)"
 SOFTWARE_DIR="\$(dirname "\${SCRIPT_DIR}")"
 
-# Load cray-python module
+# Load required modules
+module load PrgEnv-gnu
 module load cray-python/3.11.7
 
 # Activate virtual environment
