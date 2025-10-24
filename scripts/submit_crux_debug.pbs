@@ -118,8 +118,13 @@ try:
     print('✓ MPI4Py available')
     import zarr
     print('✓ Zarr', zarr.__version__)
-    import G2script
-    print('✓ GSAS-II available')
+    # Try G2script shortcut first, fallback to direct import
+    try:
+        import G2script
+        print('✓ GSAS-II (G2script shortcut)')
+    except ImportError:
+        from GSASII import GSASIIscriptable as G2script
+        print('✓ GSAS-II (direct import)')
     print('All imports successful!')
 except ImportError as e:
     print('✗ Import failed:', e)

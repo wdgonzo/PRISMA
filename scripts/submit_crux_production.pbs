@@ -171,8 +171,13 @@ try:
         print('✓ Zarr v3 BloscCodec (optimal compression)')
     except ImportError:
         print('⚠ Zarr v3 codecs not available (using v2 fallback)')
-    import G2script
-    print('✓ GSAS-II available')
+    # Try G2script shortcut first, fallback to direct import
+    try:
+        import G2script
+        print('✓ GSAS-II (G2script shortcut)')
+    except ImportError:
+        from GSASII import GSASIIscriptable as G2script
+        print('✓ GSAS-II (direct import)')
     import fabio
     print('✓ FabIO', fabio.__version__)
     print('All imports successful!')
