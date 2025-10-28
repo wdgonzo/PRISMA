@@ -66,7 +66,7 @@ def generate_data_from_recipe(recipe: dict, recipe_name: str = None) -> XRDDatas
         calibration_config = recipe.get('calibration', {})
         if calibration_config.get('auto_calibrate', False):
             # Import calibration module only if needed
-            from calibration import get_or_create_calibration
+            from XRD.utils.calibration import get_or_create_calibration
 
             control_file = get_or_create_calibration(
                 recipe,

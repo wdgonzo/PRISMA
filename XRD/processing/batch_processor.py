@@ -38,7 +38,7 @@ def process_all_recipes(home_dir: str = None):
     Args:
         home_dir: Optional home directory. If None, uses current directory.
     """
-    from path_manager import get_recipes_path, get_processed_recipes_path
+    from XRD.utils.path_manager import get_recipes_path, get_processed_recipes_path
 
     # Default to current directory if not specified
     if home_dir is None:
@@ -214,7 +214,7 @@ def process_single_recipe(recipe_name: str, home_dir: str = None):
         recipe_name: Name of the recipe file to process
         home_dir: Optional home directory
     """
-    from path_manager import get_recipes_path
+    from XRD.utils.path_manager import get_recipes_path
 
     if home_dir is None:
         home_dir = os.getcwd()

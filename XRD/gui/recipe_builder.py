@@ -636,7 +636,7 @@ class RecipeBuilder(QMainWindow):
             filename = f"{data['sample']}_{data['setting']}_{data['stage']}_{peak_names}_{timestamp}.json"
 
             # Save to recipes directory within home_dir (use new path structure)
-            from path_manager import get_recipes_path, ensure_directory_exists
+            from XRD.utils.path_manager import get_recipes_path, ensure_directory_exists
 
             recipe_dir = get_recipes_path(data["home_dir"])
             ensure_directory_exists(recipe_dir)
@@ -658,7 +658,7 @@ class RecipeBuilder(QMainWindow):
         # Default to recipes directory in current working directory
         default_dir = "recipes/"
         if hasattr(self, 'home_dir_edit') and self.home_dir_edit.text():
-            from path_manager import get_recipes_path
+            from XRD.utils.path_manager import get_recipes_path
             default_dir = get_recipes_path(self.home_dir_edit.text())
 
         file_path, _ = QFileDialog.getOpenFileName(

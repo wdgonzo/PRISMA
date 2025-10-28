@@ -92,7 +92,7 @@ source ~/Processor/activate_xrd.sh
 # Test imports
 python -c "import G2script; print('GSAS-II OK')"
 python -c "import dask_mpi; print('Dask-MPI OK')"
-python -c "from hpc_cluster import get_dask_client; print('HPC cluster OK')"
+python -c "from XRD.hpc.cluster import get_dask_client; print('HPC cluster OK')"
 ```
 
 ---
@@ -385,7 +385,7 @@ bash scripts/crux_setup.sh
 source ~/Processor/activate_xrd.sh
 
 # Test
-python -c "import G2script; from hpc_cluster import get_dask_client; print('Ready!')"
+python -c "import G2script; from XRD.hpc.cluster import get_dask_client; print('Ready!')"
 
 # Submit job
 qsub scripts/submit_crux_debug.pbs  # or submit_crux_production.pbs

@@ -234,7 +234,7 @@ For interactive work on login nodes:
 source ~/Processor/activate_xrd.sh
 
 # Verify
-python -c "from hpc_cluster import get_dask_client; print('Ready for HPC processing')"
+python -c "from XRD.hpc.cluster import get_dask_client; print('Ready for HPC processing')"
 ```
 
 ### Environment Variables (auto-configured)
@@ -528,7 +528,7 @@ source ~/Processor/activate_xrd.sh
 
 # Test processing
 cd ~/Processor
-python XRD/hpc_cluster.py  # Test cluster initialization
+python -c "from XRD.hpc.cluster import get_dask_client; client = get_dask_client(); print('Cluster ready'); client.close()"  # Test cluster initialization
 ```
 
 ---

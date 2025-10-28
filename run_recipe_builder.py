@@ -14,13 +14,13 @@ Version: Beta 0.1
 
 import sys
 from PyQt5.QtWidgets import QApplication
-from XRD.gui.recipe_builder import RecipeBuilderWindow
+from XRD.gui.recipe_builder import RecipeBuilder
 
 
 def main():
     """Launch the Recipe Builder GUI."""
     app = QApplication(sys.argv)
-    window = RecipeBuilderWindow()
+    window = RecipeBuilder()
     window.show()
     sys.exit(app.exec_())
 

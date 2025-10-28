@@ -37,7 +37,7 @@ import time
 
 # Import visualization components
 from XRD.visualization import data_visualization
-from XRD.core.gsas_processing import XRDDataset, Stages, PeakConfig
+from XRD.core.gsas_processing import XRDDataset, Stages, PeakParams
 
 
 class ImageGalleryWidget(QWidget):
@@ -390,11 +390,11 @@ class AnalysisTabWidget(QWidget):
             layout.addWidget(QLabel("No dataset loaded"))
             return group
 
-        # Get available peaks from PeakConfig
-        active_peaks = PeakConfig.get_active_peaks()
+        # Get available peaks from PeakParams
+        active_peaks = PeakParams.get_active_peaks()
 
         for i, peak_position in enumerate(active_peaks):
-            peak_metadata = PeakConfig.get_peak_metadata(peak_position)
+            peak_metadata = PeakParams.get_peak_metadata(peak_position)
             peak_frame = self.create_peak_control_frame(peak_position, peak_metadata, i)
             layout.addWidget(peak_frame)
 
@@ -841,7 +841,7 @@ class AdvancedVisualizationWindow(QMainWindow):
             for peak_pos, peak_info in params["peaks"].items():
                 if peak_pos in params["peaks"]:  # Enabled peaks only
                     # Use the existing visualization system
-                    from data_visualization import GraphParams, GraphSetting, Location
+                    from XRD.visualization.data_visualization import GraphParams, GraphSetting, Location
 
                     # Convert mode to enum
                     mode_mapping = {

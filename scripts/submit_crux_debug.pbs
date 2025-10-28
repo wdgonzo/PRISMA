@@ -22,7 +22,7 @@
 #PBS -l place=scatter
 #PBS -l walltime=02:00:00
 #PBS -q debug
-#PBS -A YourProjectName
+#PBS -A APS_INSITU_STUDY_APP
 #PBS -j oe
 #PBS -o ${HOME}/xrd_debug_${PBS_JOBID}.out
 #PBS -r y
@@ -36,8 +36,8 @@
 
 # Processing parameters (edit submitted_values.json or set here)
 # These will be used to locate your submitted_values.json file
-SAMPLE_NAME="test_sample"
-SETTING_NAME="debug"
+SAMPLE_NAME="5A2"
+SETTING_NAME="30x50"
 STAGE_NAME="BEF"
 
 # File paths on Crux

@@ -295,7 +295,7 @@ from dataclasses import dataclass
 import dask.array as da
 from dask import delayed, compute
 from dask.threaded import get as threaded_get
-from hpc_cluster import get_dask_client, close_dask_client
+from XRD.hpc.cluster import get_dask_client, close_dask_client
 from enum import Enum
 import logging
 from typing import List, Tuple, Dict, Optional, Union
@@ -925,7 +925,7 @@ class GSASParams:
             self.available_peaks = []
 
         # Import path_manager for path generation
-        from path_manager import create_standard_structure
+        from XRD.utils.path_manager import create_standard_structure
 
         # Ensure directory structure exists for outputs
         if self.home_dir and os.path.exists(self.home_dir):
@@ -997,7 +997,7 @@ class GSASParams:
             Path to Zarr storage: {home_dir}/Processed/{DateStamp}/{Sample}/Zarr/{ParamsString}/
             Example params: 360deg-72bins-0sf-100efr-8.2l2t_8.8u2t-3peaks-2bkg-143022
         """
-        from path_manager import generate_zarr_params_string, get_zarr_path, get_timestamp
+        from XRD.utils.path_manager import generate_zarr_params_string, get_zarr_path, get_timestamp
 
         if timestamp is None:
             timestamp = get_timestamp()
@@ -1043,7 +1043,7 @@ class GSASParams:
             Path to intensity plot directory
             Example params: 360deg-72bins-0sf-100efr-8.2l2t_8.8u2t-143022
         """
-        from path_manager import generate_intensity_params_string, get_intensity_path, get_timestamp
+        from XRD.utils.path_manager import generate_intensity_params_string, get_intensity_path, get_timestamp
 
         if timestamp is None:
             timestamp = get_timestamp()
@@ -1076,7 +1076,7 @@ class GSASParams:
         Returns:
             8-character hex string identifying this dataset
         """
-        from path_manager import generate_dataset_id
+        from XRD.utils.path_manager import generate_dataset_id
 
         params_dict = {
             'sample': self.sample,
@@ -1769,7 +1769,7 @@ def plot_intensity_patterns(powder_data_list: List[List[Dict]], params: GSASPara
     # Create output directory using new structure
     # Intensity plots are saved per-peak in Processed/{Date}/{Sample}/Intensity/{Params}/
     # If multiple peaks, create separate folders for each
-    from path_manager import get_timestamp
+    from XRD.utils.path_manager import get_timestamp
 
     timestamp = get_timestamp()
 
@@ -1779,7 +1779,7 @@ def plot_intensity_patterns(powder_data_list: List[List[Dict]], params: GSASPara
         output_dir = params.intensity_plot_path(timestamp)
     else:
         # Fallback if no peaks defined
-        from path_manager import get_intensity_path
+        from XRD.utils.path_manager import get_intensity_path
         output_dir = get_intensity_path(params.home_dir, params.sample, f"AllPeaks-{timestamp}")
 
     os.makedirs(output_dir, exist_ok=True)

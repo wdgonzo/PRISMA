@@ -19,8 +19,6 @@ from XRD.utils.path_manager import (
     clean_name_for_filename,
     find_zarr_datasets
 )
-from XRD.utils.calibration import calibrate
-from XRD.utils.filters import apply_filters
 
 __all__ = [
     # Utils
@@ -33,8 +31,4 @@ __all__ = [
     'format_number_for_filename',
     'clean_name_for_filename',
     'find_zarr_datasets',
-    # Calibration
-    'calibrate',
-    # Filters
-    'apply_filters',
 ]

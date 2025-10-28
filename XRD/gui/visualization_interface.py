@@ -301,7 +301,7 @@ class VisualizationWindow(QMainWindow):
 
         try:
             # Load dataset metadata (need to create dummy params for load function)
-            from gsas_processing import GSASParams, Stages, PeakParams
+            from XRD.core.gsas_processing import GSASParams, Stages, PeakParams
 
             # Create minimal dummy params for loading (load function requires params but doesn't use them)
             dummy_params = GSASParams(
@@ -478,7 +478,7 @@ class VisualizationWindow(QMainWindow):
                 QApplication.processEvents()
 
                 # Create graph parameters (simplified version)
-                from data_visualization import GraphParams, GraphSetting, Location
+                from XRD.visualization.data_visualization import GraphParams, GraphSetting, Location
 
                 # Convert mode to enum
                 mode_mapping = {

@@ -183,7 +183,7 @@ class BulkLoadWorker(QThread):
                 with open(metadata_path, 'r') as f:
                     metadata = json.load(f)
 
-                from gsas_processing import GSASParams, Stages, PeakParams, XRDDataset
+                from XRD.core.gsas_processing import GSASParams, Stages, PeakParams, XRDDataset
 
                 # Load parameters from metadata
                 params_data = metadata.get('params', {})
@@ -1898,7 +1898,7 @@ class DataAnalyzer(QMainWindow):
                 metadata = json.load(f)
 
             # Create params from loaded metadata
-            from gsas_processing import GSASParams, Stages, PeakParams
+            from XRD.core.gsas_processing import GSASParams, Stages, PeakParams
 
             # Load parameters from metadata
             params_data = metadata.get('params', {})
