@@ -31,8 +31,9 @@
 #PBS -l select=32:system=crux
 #PBS -l place=scatter
 #PBS -l walltime=08:00:00
+#PBS -l filesystems=home:eagle
 #PBS -q workq-route
-#PBS -A YourProjectName
+#PBS -A APS_INSITU_STUDY_APP
 #PBS -j oe
 #PBS -o ${HOME}/xrd_prod_${PBS_JOBID}.out
 #PBS -r y
