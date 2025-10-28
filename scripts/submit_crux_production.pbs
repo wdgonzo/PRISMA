@@ -35,7 +35,7 @@
 #PBS -q workq-route
 #PBS -A APS_INSITU_STUDY_APP
 #PBS -j oe
-#PBS -o ${HOME}/xrd_prod_${PBS_JOBID}.out
+#PBS -o /eagle/APS_INSITU_STUDY_APP/logs/xrd_prod_${PBS_JOBID}.out
 #PBS -r y
 #PBS -m abe
 #PBS -M your.email@example.com
