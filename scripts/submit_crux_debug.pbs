@@ -44,7 +44,7 @@ STAGE_NAME="BEF"
 PROJECT_BASE="/eagle/APS_INSITU_STUDY_APP"
 PROCESSOR_DIR="${PROJECT_BASE}/Software/PRISMA"
 VENV_PATH="${PROJECT_BASE}/Software/venv"
-GSAS2DIR="${PROJECT_BASE}/Software/GSAS"
+GSAS2DIR="${PROJECT_BASE}/Software/GSAS-II"
 
 # Home directory for XRD data structure
 # This directory should contain: Data/, Processed/, Analysis/, Params/
@@ -62,6 +62,18 @@ module load cray-python/3.11.7
 
 # Set up environment
 cd "${PROCESSOR_DIR}" || exit 1
+
+# HPC optimizations (prevent thread oversubscription)
+# CRITICAL: Must be set BEFORE activating Python environment to prevent
+# OpenBLAS from spawning too many threads during numpy initialization
+export OMP_NUM_THREADS=1
+export MKL_NUM_THREADS=1
+export OPENBLAS_NUM_THREADS=1
+export NUMEXPR_NUM_THREADS=1
+
+# Crux proxy settings (for compute nodes)
+export http_proxy="http://proxy.alcf.anl.gov:3128"
+export https_proxy="http://proxy.alcf.anl.gov:3128"
 
 echo "======================================================================="
 echo "Crux XRD Processing - DEBUG MODE"
@@ -83,16 +95,6 @@ source "${VENV_PATH}/bin/activate"
 
 # Configure GSAS-II
 export PYTHONPATH="${GSAS2DIR}:${PYTHONPATH}"
-
-# HPC optimizations (prevent thread oversubscription)
-export OMP_NUM_THREADS=1
-export MKL_NUM_THREADS=1
-export OPENBLAS_NUM_THREADS=1
-export NUMEXPR_NUM_THREADS=1
-
-# Crux proxy settings (for compute nodes)
-export http_proxy="http://proxy.alcf.anl.gov:3128"
-export https_proxy="http://proxy.alcf.anl.gov:3128"
 
 # Dask configuration
 export DASK_DISTRIBUTED__COMM__TIMEOUTS__CONNECT=60s

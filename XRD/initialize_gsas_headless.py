@@ -24,8 +24,15 @@ Date: October 2025
 Version: Beta 0.1
 """
 
-import sys
+# Set thread limits BEFORE any imports to prevent OpenBLAS thread explosion
+# This prevents numpy/GSAS-II from spawning too many threads during initialization
 import os
+os.environ.setdefault('OMP_NUM_THREADS', '1')
+os.environ.setdefault('MKL_NUM_THREADS', '1')
+os.environ.setdefault('OPENBLAS_NUM_THREADS', '1')
+os.environ.setdefault('NUMEXPR_NUM_THREADS', '1')
+
+import sys
 import os.path
 
 

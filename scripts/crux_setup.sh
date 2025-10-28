@@ -142,10 +142,13 @@ PACKAGES=(
     "openpyxl"
     "pybaselines"
     "bokeh"
+    # MPI support - CRITICAL: mpi4py MUST be installed BEFORE dask-mpi
+    # If dask-mpi installs first, it will pull in mpi4py as a dependency
+    # using a pre-built wheel that doesn't link correctly to Crux's system MPI
+    "mpi4py"
     # Dask ecosystem with MPI support
     "dask[distributed]"
     "dask-mpi"
-    "mpi4py"
     # Zarr with v3 support and compression
     "zarr[v3]"
     "numcodecs>=0.12.0"
