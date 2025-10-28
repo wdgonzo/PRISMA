@@ -164,7 +164,7 @@ echo ""
 mpiexec -n ${TOTAL_RANKS} \
     -ppn 1 \
     --cpu-bind verbose \
-    python XRD/data_visualization.py
+    python XRD/visualization/data_visualization.py
 
 EXIT_CODE=$?
 

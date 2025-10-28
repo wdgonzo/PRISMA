@@ -855,7 +855,7 @@ qstat -a | grep workq-route
 **For CPU-intensive workloads:**
 ```bash
 # Use multiple ranks per node
-mpiexec -n 64 -ppn 2 python XRD/data_visualization.py
+mpiexec -n 64 -ppn 2 python XRD/visualization/data_visualization.py
 # 32 nodes × 2 ranks = 64 total ranks
 ```
 
@@ -864,7 +864,7 @@ mpiexec -n 64 -ppn 2 python XRD/data_visualization.py
 # Use fewer workers per node (default is 1 per node)
 # Gives each worker more memory
 #PBS -l select=64:system=crux
-mpiexec -n 32 -ppn 1 python XRD/data_visualization.py
+mpiexec -n 32 -ppn 1 python XRD/visualization/data_visualization.py
 # Uses only half the nodes as workers, 2x memory per worker
 ```
 
@@ -888,7 +888,7 @@ Process multiple samples in a single job:
 import os
 samples = ['Sample1', 'Sample2', 'Sample3']
 for sample in samples:
-    os.system(f'python XRD/data_visualization.py {sample}')
+    os.system(f'python XRD/visualization/data_visualization.py {sample}')
 
 # In PBS script:
 mpiexec -n ${TOTAL_RANKS} python process_batch.py
