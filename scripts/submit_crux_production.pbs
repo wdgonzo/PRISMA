@@ -114,8 +114,8 @@ echo ""
 echo "Activating Python environment..."
 source "${VENV_PATH}/bin/activate"
 
-# Configure GSAS-II
-export PYTHONPATH="${GSAS2DIR}:${PYTHONPATH}"
+# Configure PYTHONPATH for XRD package and GSAS-II
+export PYTHONPATH="${PROCESSOR_DIR}:${GSAS2DIR}:${PYTHONPATH}"
 
 # Dask configuration for large-scale processing
 export DASK_DISTRIBUTED__COMM__TIMEOUTS__CONNECT=120s

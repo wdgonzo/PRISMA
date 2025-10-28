@@ -351,9 +351,10 @@ module load cray-python/3.11.7
 # Activate virtual environment
 source "\${SOFTWARE_DIR}/venv/bin/activate"
 
-# GSAS-II environment (matches official docs: sys.path.insert(0,'/path/to/GSAS-II'))
+# Configure PYTHONPATH for XRD package and GSAS-II
+# SCRIPT_DIR is the PRISMA directory containing the XRD package
 export GSAS2DIR="\${SOFTWARE_DIR}/GSAS-II"
-export PYTHONPATH="\${GSAS2DIR}:\${PYTHONPATH}"
+export PYTHONPATH="\${SCRIPT_DIR}:\${GSAS2DIR}:\${PYTHONPATH}"
 
 # Crux proxy settings (for compute nodes)
 export http_proxy="http://proxy.alcf.anl.gov:3128"
