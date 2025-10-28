@@ -55,14 +55,17 @@
 # Edit your submitted_values.json file with full processing parameters
 # The script will use the JSON file for all processing settings
 
-# File paths on Crux
-PROCESSOR_DIR="${HOME}/Processor"
-VENV_PATH="${HOME}/xrd_env"
-GSAS2DIR="${HOME}/GSASII"
+# File paths on Crux - Project software directory
+PROJECT_BASE="/eagle/APS_INSITU_STUDY_APP"
+PROCESSOR_DIR="${PROJECT_BASE}/Software/PRISMA"
+VENV_PATH="${PROJECT_BASE}/Software/venv"
+GSAS2DIR="${PROJECT_BASE}/Software/GSAS"
 
-# Data directory (adjust to your data location on Crux)
-# Expected structure: Images/, Refs/, Zarr/ subdirectories
-DATA_DIR="${HOME}/xrd_data"
+# Home directory for XRD data structure
+# This directory should contain: Data/, Processed/, Analysis/, Params/
+# Data structure: Data/{MonthYear}/{Sample}/{Stage}/{Images,Refs}/
+# Processed structure: Processed/{DateStamp}/{Sample}/{Zarr,Intensity}/
+HOME_DIR="${PROJECT_BASE}"
 
 # Performance monitoring (set to 1 to enable detailed timing)
 ENABLE_PROFILING=0
@@ -136,7 +139,7 @@ echo "Environment configured:"
 echo "  Python: $(which python)"
 echo "  Python version: $(python --version)"
 echo "  GSAS-II: ${GSAS2DIR}"
-echo "  Data directory: ${DATA_DIR}"
+echo "  Home directory: ${HOME_DIR}"
 echo ""
 
 # System information
