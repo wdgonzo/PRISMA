@@ -63,12 +63,15 @@ bash scripts/crux_setup.sh
 **What happens automatically:**
 1. Loads cray-python/3.11.7 ✓
 2. Creates Python venv with NumPy 2.2 ✓
-3. Installs dask-mpi, mpi4py, all dependencies ✓
-4. **Compiles GSAS-II from source** (5-10 min) ✓
-5. Initializes GSASIIscriptable ✓
-6. Creates activation script ✓
+3. **Compiles mpi4py from source** (2-5 min) - Required for proper MPI linking ✓
+4. Installs dask-mpi and all dependencies ✓
+5. **Compiles GSAS-II from source** (5-10 min) ✓
+6. Initializes GSASIIscriptable ✓
+7. Creates activation script ✓
 
-**Expected time:** 10-15 minutes
+**Note:** mpi4py must compile from source (not use pre-built wheels) to properly link with Crux's system MPI libraries. The setup script handles this automatically.
+
+**Expected time:** 15-20 minutes (increased from 10-15 due to mpi4py source build)
 
 **Success looks like:**
 ```

@@ -156,7 +156,12 @@ PACKAGES=(
     "fabio"
 )
 
+# Force mpi4py to compile from source (required for proper MPI linking on HPC)
+# Pre-built wheels don't link correctly to Crux's system MPI libraries
+export PIP_NO_BINARY=mpi4py
+
 echo "Installing ${#PACKAGES[@]} packages..."
+echo "NOTE: mpi4py will compile from source (takes 2-5 minutes) to link properly with Crux MPI"
 for package in "${PACKAGES[@]}"; do
     echo "  - Installing ${package}..."
     pip install "${package}" || {
