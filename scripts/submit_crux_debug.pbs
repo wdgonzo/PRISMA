@@ -25,7 +25,6 @@
 #PBS -q debug
 #PBS -A APS_INSITU_STUDY_APP
 #PBS -j oe
-#PBS -o /eagle/APS_INSITU_STUDY_APP/logs/xrd_debug_${PBS_JOBID}.out
 #PBS -r y
 
 # ============================================================================
