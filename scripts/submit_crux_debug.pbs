@@ -56,9 +56,9 @@ HOME_DIR="${PROJECT_BASE}"
 # SYSTEM CONFIGURATION (typically no changes needed)
 # ============================================================================
 
-# Load required modules (if available on Crux)
-# module use /soft/modulefiles
-# module load spack-pe-base
+# Load required modules (REQUIRED for MPI on Crux)
+module load PrgEnv-gnu
+module load cray-python/3.11.7
 
 # Set up environment
 cd "${PROCESSOR_DIR}" || exit 1
