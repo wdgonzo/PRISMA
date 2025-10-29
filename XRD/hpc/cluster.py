@@ -89,6 +89,55 @@ def get_hpc_config() -> Dict[str, Any]:
     }
 
 
+def detect_network_interface() -> Optional[str]:
+    """
+    Detect the best network interface for Dask-MPI communication.
+
+    Priority order:
+    1. hsn0/hsn* - HPE Slingshot (Crux, Aurora, etc.)
+    2. ib0/ib* - InfiniBand (most HPC systems)
+    3. eth0/enp* - Ethernet
+    4. None - Let Dask auto-detect
+
+    Returns:
+        Network interface name or None for auto-detection
+    """
+    try:
+        import netifaces
+
+        interfaces = netifaces.interfaces()
+
+        # Priority list for HPC networks
+        priority_patterns = [
+            ('hsn', 'HPE Slingshot'),   # Crux, Aurora
+            ('ib', 'InfiniBand'),        # Traditional HPC
+            ('eth', 'Ethernet'),         # Standard
+            ('enp', 'Ethernet'),         # Predictable naming
+        ]
+
+        for pattern, name in priority_patterns:
+            for iface in interfaces:
+                if iface.startswith(pattern) and iface != 'lo':
+                    return iface
+
+    except ImportError:
+        # netifaces not available, try psutil
+        try:
+            import psutil
+            interfaces = list(psutil.net_if_addrs().keys())
+
+            # Same priority patterns
+            for pattern, _ in [('hsn', ''), ('ib', ''), ('eth', ''), ('enp', '')]:
+                for iface in interfaces:
+                    if iface.startswith(pattern) and iface != 'lo':
+                        return iface
+        except:
+            pass
+
+    # Let Dask auto-detect
+    return None
+
+
 def configure_hpc_environment():
     """
     Configure environment variables for optimal HPC performance.
@@ -172,6 +221,15 @@ def get_dask_client(
                 print(f"MPI Size: {size} processes")
                 print(f"Detected MPI implementation via environment")
 
+            # Detect optimal network interface for this system
+            network_interface = detect_network_interface()
+
+            if verbose and rank == 0:
+                if network_interface:
+                    print(f"Network interface: {network_interface}")
+                else:
+                    print(f"Network interface: auto-detect")
+
             # Initialize Dask-MPI
             # One process becomes scheduler, one becomes client, rest become workers
             # Expected workers: size - 2
@@ -179,7 +237,7 @@ def get_dask_client(
                 nthreads=threads_per_worker or 1,  # Threads per worker
                 local_directory=local_directory,   # Temporary storage
                 memory_limit=memory_limit,         # Memory per worker
-                interface='ib0',                   # Use InfiniBand if available, falls back to eth0
+                interface=network_interface,       # Auto-detected HPC network (hsn0, ib0, etc.)
             )
 
             # Get client (only rank 0 has access)
