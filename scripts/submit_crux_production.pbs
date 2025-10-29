@@ -140,14 +140,19 @@ source "${VENV_PATH}/bin/activate"
 # Configure PYTHONPATH for XRD package and GSAS-II
 export PYTHONPATH="${PROCESSOR_DIR}:${GSAS2DIR}:${PYTHONPATH}"
 
-# Dask configuration for large-scale processing
-export DASK_DISTRIBUTED__COMM__TIMEOUTS__CONNECT=120s
-export DASK_DISTRIBUTED__COMM__TIMEOUTS__TCP=120s
+# Dask configuration for large-scale processing (8K-16K workers)
+export DASK_DISTRIBUTED__COMM__TIMEOUTS__CONNECT=600s              # 10 min (increased from 120s for massive scale)
+export DASK_DISTRIBUTED__COMM__TIMEOUTS__TCP=600s                  # 10 min
+export DASK_DISTRIBUTED__COMM__TIMEOUTS__SHUTDOWN=600s             # 10 min shutdown timeout
+export DASK_DISTRIBUTED__SCHEDULER__WORKER_TTL=3600s               # 1 hour worker TTL
+export DASK_DISTRIBUTED__SCHEDULER__ALLOWED_FAILURES=10            # Allow more transient failures
+export DASK_DISTRIBUTED__WORKER__STARTUP_TIMEOUT=600s              # 10 min worker startup patience
+export DASK_DISTRIBUTED__CORE__DEFAULT_CONNECT_TIMEOUT=600s        # 10 min default timeout
 export DASK_DISTRIBUTED__WORKER__MEMORY__TARGET=0.70
 export DASK_DISTRIBUTED__WORKER__MEMORY__SPILL=0.80
 export DASK_DISTRIBUTED__WORKER__MEMORY__PAUSE=0.90
 export DASK_DISTRIBUTED__WORKER__MEMORY__TERMINATE=0.95
-export DASK_DISTRIBUTED__COMM__COMPRESSION=lz4
+export DASK_DISTRIBUTED__COMM__COMPRESSION=auto                     # auto (Crux requirement - lz4 doesn't work)
 
 # Profiling setup
 if [ ${ENABLE_PROFILING} -eq 1 ]; then

@@ -20,6 +20,10 @@ import json
 from dataclasses import dataclass
 from typing import List, Dict, Any, Optional
 from datetime import datetime
+import warnings
+
+# Suppress all Python warnings for HPC (prevents stderr spam with 8K+ workers)
+warnings.filterwarnings('ignore')
 
 # Import G2script - try shortcut first (local GUI setup), fallback to direct import (HPC)
 try:

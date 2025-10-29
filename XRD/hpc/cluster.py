@@ -60,9 +60,10 @@ def get_hpc_config() -> Dict[str, Any]:
 
     Based on CLAUDE.md v1.3 performance optimizations:
     - Memory management for HPC nodes
-    - LZ4 compression for network communication
-    - Worker timeout settings
+    - Auto compression for network communication (Crux requirement)
+    - Extended timeout settings for 8K-16K worker scale
     - Thread management to prevent oversubscription
+    - Reduced scheduler overhead for massive parallelism
 
     Returns:
         Dictionary of Dask configuration parameters
@@ -75,17 +76,25 @@ def get_hpc_config() -> Dict[str, Any]:
         'distributed.worker.memory.terminate': 0.95,  # Terminate at 95%
 
         # Network optimization
-        'distributed.comm.compression': 'auto',       # Auto-select best available compression
-        'distributed.comm.timeouts.connect': '60s',   # Connection timeout
-        'distributed.comm.timeouts.tcp': '60s',       # TCP timeout
+        'distributed.comm.compression': 'auto',       # Auto-select best available compression (Crux requirement)
+        'distributed.comm.timeouts.connect': '600s',  # Connection timeout (10 min for 8K+ workers)
+        'distributed.comm.timeouts.tcp': '600s',      # TCP timeout (10 min)
+        'distributed.comm.timeouts.shutdown': '600s', # Shutdown timeout (10 min)
 
-        # Worker management
-        'distributed.scheduler.worker-ttl': '5 minutes',  # Worker timeout
-        'distributed.scheduler.allowed-failures': 3,      # Retry failures
+        # Worker management (extended for massive scale)
+        'distributed.scheduler.worker-ttl': '60 minutes',  # Worker timeout (1 hour for long jobs)
+        'distributed.scheduler.allowed-failures': 10,      # Allow more transient failures at scale
+        'distributed.worker.startup-timeout': '600s',      # Worker startup patience (10 min)
+        'distributed.core.default-connect-timeout': '600s', # Default connection timeout
 
-        # Logging (reduce verbosity for HPC)
-        'distributed.scheduler.log-length': 1000,
-        'distributed.worker.log-length': 1000,
+        # Scheduler optimization (reduce overhead for 8K-16K workers)
+        'distributed.scheduler.validate': False,           # Skip validation at scale (performance)
+        'distributed.scheduler.events-log-length': 1000,   # Reduce event tracking (from default 100000)
+        'distributed.admin.log-length': 100,               # Reduce admin logging
+
+        # Logging (minimal for HPC - prevent I/O storms with many workers)
+        'distributed.scheduler.log-length': 100,           # Reduced from 1000
+        'distributed.worker.log-length': 100,              # Reduced from 1000
     }
 
 
