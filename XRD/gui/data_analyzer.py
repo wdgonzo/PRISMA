@@ -191,10 +191,8 @@ class BulkLoadWorker(QThread):
                 # Reconstruct active_peaks from metadata
                 active_peaks = []
                 if 'active_peaks' in params_data and params_data['active_peaks']:
-                    # IMPORTANT: Reverse the peak order to match actual data structure
-                    reversed_peaks = list(reversed(params_data['active_peaks']))
-
-                    for peak_data in reversed_peaks:
+                    # Load peaks in original order from metadata
+                    for peak_data in params_data['active_peaks']:
                         peak = PeakParams(
                             name=peak_data.get('name', 'Unknown Peak'),
                             miller_index=peak_data.get('miller_index', '211'),
@@ -218,9 +216,12 @@ class BulkLoadWorker(QThread):
 
                 # Create GSASParams with all required fields
                 params = GSASParams(
-                    image_folder="",
+                    home_dir="",
+                    images_path="",
+                    refs_path=None,
                     control_file="",
                     mask_file="",
+                    intplot_export=False,
                     sample=params_data.get('sample', 'Unknown'),
                     setting=params_data.get('setting', 'Unknown'),
                     stage=stage,
@@ -230,7 +231,10 @@ class BulkLoadWorker(QThread):
                     azimuths=tuple(params_data.get('azimuths', (-110, 110))),
                     frames=tuple(params_data.get('frames', (0, 100))),
                     spacing=params_data.get('spacing', 5),
-                    step=1
+                    step=1,
+                    pixel_size=(172.0, 172.0),
+                    wavelength=0.1726,
+                    detector_size=(1475, 1679)
                 )
 
                 # Load dataset
@@ -1938,9 +1942,12 @@ class DataAnalyzer(QMainWindow):
             stage = getattr(Stages, stage_name, Stages.CONT)
 
             loaded_params = GSASParams(
-                image_folder="",
+                home_dir="",
+                images_path="",
+                refs_path=None,
                 control_file="",
                 mask_file="",
+                intplot_export=False,
                 sample=params_data.get('sample', 'Unknown'),
                 setting=params_data.get('setting', 'Unknown'),
                 stage=stage,
@@ -1950,7 +1957,10 @@ class DataAnalyzer(QMainWindow):
                 azimuths=tuple(params_data.get('azimuths', (-110, 110))),
                 frames=tuple(params_data.get('frames', (0, 100))),
                 spacing=params_data.get('spacing', 5),
-                step=1
+                step=1,
+                pixel_size=(172.0, 172.0),
+                wavelength=0.1726,
+                detector_size=(1475, 1679)
             )
 
             dataset = XRDDataset.load(zarr_dir, loaded_params)

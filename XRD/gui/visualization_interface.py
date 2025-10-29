@@ -305,9 +305,11 @@ class VisualizationWindow(QMainWindow):
 
             # Create minimal dummy params for loading (load function requires params but doesn't use them)
             dummy_params = GSASParams(
-                image_folder="", control_file="", mask_file="", sample="", setting="",
-                stage=Stages.CONT, notes="", exposure="", active_peaks=[],
-                azimuths=(0, 360), frames=(0, -1), spacing=5, step=1
+                home_dir="", images_path="", refs_path=None, control_file="", mask_file="",
+                intplot_export=False, sample="", setting="", stage=Stages.CONT, notes="",
+                exposure="", active_peaks=[], azimuths=(0, 360), frames=(0, -1),
+                spacing=5, step=1, pixel_size=(172.0, 172.0), wavelength=0.1726,
+                detector_size=(1475, 1679)
             )
 
             dataset = XRDDataset.load(zarr_path, dummy_params)

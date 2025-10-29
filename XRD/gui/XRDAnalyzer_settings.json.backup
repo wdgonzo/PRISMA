@@ -1,0 +1,61 @@
+{
+  "version": "3.0",
+  "window": {
+    "size": [
+      1400,
+      900
+    ],
+    "position": [
+      98,
+      38
+    ]
+  },
+  "analysis_defaults": {
+    "measurement": "strain",
+    "delta_enabled": false,
+    "abs_enabled": false,
+    "pct_enabled": false,
+    "graphing_mode": "heatmap",
+    "colormap": "icefire",
+    "vmin": -0.005,
+    "vmax": 0.005,
+    "auto_scale": true,
+    "range_type": "full",
+    "start_time": 0.0,
+    "end_time": 999.0,
+    "start_frame": 0,
+    "end_frame": 999999
+  },
+  "batch_analysis": {
+    "frame_start": 150,
+    "frame_end": 160,
+    "azimuth_ranges": [
+      {
+        "name": "Near Loading",
+        "lower": -5,
+        "upper": 5
+      },
+      {
+        "name": "Transverse 1",
+        "lower": 85,
+        "upper": 95
+      },
+      {
+        "name": "Opposite Loading",
+        "lower": 175,
+        "upper": 185
+      },
+      {
+        "name": "Transverse 2",
+        "lower": -95,
+        "upper": -85
+      }
+    ]
+  },
+  "paths": {
+    "last_zarr_folder": "G:/Processed/2025-10-29/5A2/Zarr"
+  },
+  "ui_preferences": {
+    "gallery_view_mode": "grid"
+  }
+}
