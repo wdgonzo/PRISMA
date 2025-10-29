@@ -74,6 +74,21 @@ GSAS2DIR="${PROJECT_BASE}/Software/GSAS-II"
 # Processed structure: Processed/{DateStamp}/{Sample}/{Zarr,Intensity}/
 HOME_DIR="${PROJECT_BASE}"
 
+# Parallel processing configuration
+# Number of Dask workers per node (can be overridden at submission)
+# Submit with custom value: qsub -v WORKERS_PER_NODE=128 scripts/submit_crux_production.pbs
+# Or use wrapper: ./scripts/submit_crux.sh 128 production
+#
+# Memory per worker = ~256GB / WORKERS_PER_NODE
+# GSAS-II uses 1-2GB per task, so aim for 2-4GB per worker
+#
+# Recommended values:
+#   32  = conservative (~8GB/worker)
+#   64  = balanced (~4GB/worker) [DEFAULT]
+#   96  = aggressive (~2.5GB/worker)
+#   128 = maximum (~2GB/worker)
+WORKERS_PER_NODE=${WORKERS_PER_NODE:-64}  # Default: 64 workers per node
+
 # Performance monitoring (set to 1 to enable detailed timing)
 ENABLE_PROFILING=0
 
@@ -207,23 +222,24 @@ echo ""
 
 # Get MPI configuration from PBS
 NUM_NODES=$(cat ${PBS_NODEFILE} | sort -u | wc -l)
-TOTAL_RANKS=$((NUM_NODES))  # One rank per node for Dask-MPI
+TOTAL_RANKS=$((NUM_NODES * WORKERS_PER_NODE))  # Workers per node × number of nodes
+EXPECTED_WORKERS=$((TOTAL_RANKS - 2))  # Minus scheduler and client
 
 echo "MPI Configuration:"
 echo "  Nodes: ${NUM_NODES}"
+echo "  Workers per node: ${WORKERS_PER_NODE}"
 echo "  Total MPI ranks: ${TOTAL_RANKS}"
-echo "  Ranks per node: 1"
-echo "  Expected Dask workers: $((TOTAL_RANKS - 2))"
+echo "  Expected Dask workers: ${EXPECTED_WORKERS} (scheduler + client use 2 ranks)"
 echo ""
 echo "Expected performance:"
-if [ ${NUM_NODES} -le 8 ]; then
-    echo "  Speedup: ~${NUM_NODES}x vs single node"
-elif [ ${NUM_NODES} -le 32 ]; then
-    SPEEDUP=$((NUM_NODES * 75 / 100))
-    echo "  Speedup: ~${SPEEDUP}x vs single node (75% efficiency)"
+if [ ${EXPECTED_WORKERS} -le 8 ]; then
+    echo "  Speedup: ~${EXPECTED_WORKERS}x vs single worker"
+elif [ ${EXPECTED_WORKERS} -le 256 ]; then
+    SPEEDUP=$((EXPECTED_WORKERS * 75 / 100))
+    echo "  Speedup: ~${SPEEDUP}x vs single worker (75% efficiency)"
 else
-    SPEEDUP=$((NUM_NODES * 60 / 100))
-    echo "  Speedup: ~${SPEEDUP}x vs single node (60% efficiency)"
+    SPEEDUP=$((EXPECTED_WORKERS * 60 / 100))
+    echo "  Speedup: ~${SPEEDUP}x vs single worker (60% efficiency)"
 fi
 echo ""
 
@@ -261,8 +277,13 @@ echo ""
 # - Process diffraction images with GSAS-II peak fitting
 # - Generate Zarr datasets in Processed/{DateStamp}/{Sample}/Zarr/
 # - Move processed recipes to recipes/processed/
+#
+# MPI configuration:
+# -n ${TOTAL_RANKS}        = Total processes across all nodes
+# -ppn ${WORKERS_PER_NODE} = Processes per node (Dask workers)
+# --cpu-bind verbose       = Show CPU binding for debugging
 mpiexec -n ${TOTAL_RANKS} \
-    -ppn 1 \
+    -ppn ${WORKERS_PER_NODE} \
     --cpu-bind verbose \
     python XRD/processing/batch_processor.py --home "${HOME_DIR}"
 

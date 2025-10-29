@@ -60,6 +60,21 @@ GSAS2DIR="${PROJECT_BASE}/Software/GSAS-II"
 # Processed structure: Processed/{DateStamp}/{Sample}/{Zarr,Intensity}/
 HOME_DIR="${PROJECT_BASE}"
 
+# Parallel processing configuration
+# Number of Dask workers per node (can be overridden at submission)
+# Submit with custom value: qsub -v WORKERS_PER_NODE=128 scripts/submit_crux_debug.pbs
+# Or use wrapper: ./scripts/submit_crux.sh 128 debug
+#
+# Memory per worker = ~256GB / WORKERS_PER_NODE
+# GSAS-II uses 1-2GB per task, so aim for 2-4GB per worker
+#
+# Recommended values:
+#   32  = conservative (~8GB/worker)
+#   64  = balanced (~4GB/worker) [DEFAULT]
+#   96  = aggressive (~2.5GB/worker)
+#   128 = maximum (~2GB/worker)
+WORKERS_PER_NODE=${WORKERS_PER_NODE:-64}  # Default: 64 workers per node
+
 # ============================================================================
 # SYSTEM CONFIGURATION (typically no changes needed)
 # ============================================================================
@@ -152,12 +167,13 @@ echo ""
 
 # Get MPI configuration from PBS
 NUM_NODES=$(cat ${PBS_NODEFILE} | sort -u | wc -l)
-TOTAL_RANKS=$((NUM_NODES))  # One rank per node for Dask-MPI
+TOTAL_RANKS=$((NUM_NODES * WORKERS_PER_NODE))  # Workers per node × number of nodes
 
 echo "MPI Configuration:"
 echo "  Nodes: ${NUM_NODES}"
-echo "  Total ranks: ${TOTAL_RANKS}"
-echo "  Ranks per node: 1"
+echo "  Workers per node: ${WORKERS_PER_NODE}"
+echo "  Total MPI ranks: ${TOTAL_RANKS}"
+echo "  Expected Dask workers: $((TOTAL_RANKS - 2)) (scheduler + client use 2 ranks)"
 echo ""
 
 # Run batch processing with Dask-MPI
@@ -177,8 +193,13 @@ echo ""
 # Execute batch processing
 # The --home parameter specifies the base directory for data structure
 # (should contain Data/, Processed/, Params/ subdirectories)
+#
+# MPI configuration:
+# -n ${TOTAL_RANKS}        = Total processes across all nodes
+# -ppn ${WORKERS_PER_NODE} = Processes per node (Dask workers)
+# --cpu-bind verbose       = Show CPU binding for debugging
 mpiexec -n ${TOTAL_RANKS} \
-    -ppn 1 \
+    -ppn ${WORKERS_PER_NODE} \
     --cpu-bind verbose \
     python XRD/processing/batch_processor.py --home "${HOME_DIR}"
 
