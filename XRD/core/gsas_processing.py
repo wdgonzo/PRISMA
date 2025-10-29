@@ -188,7 +188,7 @@ def setup_hpc_environment():
             'distributed.worker.memory.spill': 0.8,     # Spill at 80%
             'distributed.worker.memory.pause': 0.9,     # Pause at 90%
             'distributed.worker.memory.terminate': 0.95,  # Terminate at 95%
-            'distributed.comm.compression': 'lz4',      # Fast compression
+            'distributed.comm.compression': 'auto',     # Auto-select best available
             'distributed.scheduler.worker-ttl': '5 minutes',  # Worker timeout
         })
         print("   Dask: Configured for HPC memory management")
