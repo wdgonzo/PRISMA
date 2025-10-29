@@ -6,22 +6,33 @@
 # parallelism.
 #
 # Usage:
-#   ./scripts/submit_crux.sh <workers_per_node> [mode]
+#   ./scripts/submit_crux.sh <workers_per_node> [mode] [num_nodes] [walltime_hours]
 #
 # Arguments:
 #   workers_per_node: Number of Dask workers per node (1-128)
 #   mode: "debug" or "production" (default: debug)
+#   num_nodes: Number of nodes (PRODUCTION ONLY, 1-184, default: 32)
+#   walltime_hours: Walltime in hours (PRODUCTION ONLY, 1-24, default: 8)
 #
 # Examples:
-#   ./scripts/submit_crux.sh 64           # 64 workers/node, debug queue
-#   ./scripts/submit_crux.sh 128 debug    # 128 workers/node, debug queue
-#   ./scripts/submit_crux.sh 96 production  # 96 workers/node, production queue
+#   ./scripts/submit_crux.sh 64                        # 64 workers/node, debug (4 nodes, 2hr fixed)
+#   ./scripts/submit_crux.sh 128 debug                 # 128 workers/node, debug (4 nodes, 2hr fixed)
+#   ./scripts/submit_crux.sh 96 production             # 96 workers/node, production (32 nodes, 8hr default)
+#   ./scripts/submit_crux.sh 64 production 64          # 64 workers/node, production, 64 nodes, 8hr
+#   ./scripts/submit_crux.sh 64 production 64 12       # 64 workers/node, production, 64 nodes, 12hr
+#   ./scripts/submit_crux.sh 128 production 128 24     # 128 workers/node, production, 128 nodes, 24hr
 #
 # Parallelism Guide:
 #   Conservative:  32 workers/node  (~8GB RAM per worker)
 #   Balanced:      64 workers/node  (~4GB RAM per worker)
 #   Aggressive:    96 workers/node  (~2.5GB RAM per worker)
 #   Maximum:      128 workers/node  (~2GB RAM per worker)
+#
+# Walltime Guide (production):
+#   Small datasets (100-500 frames):     2-4 hours
+#   Medium datasets (500-2000 frames):   4-8 hours
+#   Large datasets (2000-5000 frames):   8-12 hours
+#   Very large (5000+ frames):           12-24 hours
 #
 # Author: William Gonzalez
 # Date: October 2025
@@ -37,11 +48,13 @@ NC='\033[0m' # No Color
 # Parse arguments
 WORKERS_PER_NODE=${1:-64}
 MODE=${2:-debug}
+NUM_NODES=${3}  # Optional, only for production
+WALLTIME_HOURS=${4}  # Optional, only for production
 
 # Validate workers_per_node
 if ! [[ "$WORKERS_PER_NODE" =~ ^[0-9]+$ ]]; then
     echo -e "${RED}Error: workers_per_node must be a number${NC}"
-    echo "Usage: $0 <workers_per_node> [mode]"
+    echo "Usage: $0 <workers_per_node> [mode] [num_nodes] [walltime_hours]"
     exit 1
 fi
 
@@ -54,9 +67,53 @@ fi
 # Validate mode
 if [ "$MODE" != "debug" ] && [ "$MODE" != "production" ]; then
     echo -e "${RED}Error: mode must be 'debug' or 'production'${NC}"
-    echo "Usage: $0 <workers_per_node> [mode]"
+    echo "Usage: $0 <workers_per_node> [mode] [num_nodes] [walltime_hours]"
     exit 1
 fi
+
+# Handle node count and walltime based on mode
+if [ "$MODE" = "debug" ]; then
+    NUM_NODES=4  # Debug mode always uses 4 nodes
+    WALLTIME_HOURS=2  # Debug mode always uses 2 hours
+
+    if [ -n "$3" ]; then
+        echo -e "${YELLOW}Warning: num_nodes parameter ignored for debug mode (fixed at 4 nodes)${NC}"
+    fi
+    if [ -n "$4" ]; then
+        echo -e "${YELLOW}Warning: walltime_hours parameter ignored for debug mode (fixed at 2 hours)${NC}"
+    fi
+else
+    # Production mode: use provided values or defaults
+    NUM_NODES=${NUM_NODES:-32}
+    WALLTIME_HOURS=${WALLTIME_HOURS:-8}
+
+    # Validate num_nodes for production
+    if ! [[ "$NUM_NODES" =~ ^[0-9]+$ ]]; then
+        echo -e "${RED}Error: num_nodes must be a number${NC}"
+        exit 1
+    fi
+
+    if [ "$NUM_NODES" -lt 1 ] || [ "$NUM_NODES" -gt 184 ]; then
+        echo -e "${RED}Error: num_nodes must be between 1 and 184 for production${NC}"
+        echo "Crux workq-route queue supports 1-184 nodes"
+        exit 1
+    fi
+
+    # Validate walltime_hours for production
+    if ! [[ "$WALLTIME_HOURS" =~ ^[0-9]+$ ]]; then
+        echo -e "${RED}Error: walltime_hours must be a number${NC}"
+        exit 1
+    fi
+
+    if [ "$WALLTIME_HOURS" -lt 1 ] || [ "$WALLTIME_HOURS" -gt 24 ]; then
+        echo -e "${RED}Error: walltime_hours must be between 1 and 24 for production${NC}"
+        echo "Crux workq-route queue supports up to 24 hours"
+        exit 1
+    fi
+fi
+
+# Format walltime as HH:MM:SS for PBS
+WALLTIME_PBS=$(printf "%02d:00:00" $WALLTIME_HOURS)
 
 # Select PBS script
 if [ "$MODE" = "debug" ]; then
@@ -81,17 +138,29 @@ echo ""
 echo -e "${GREEN}Configuration:${NC}"
 echo "  Mode: $MODE"
 echo "  Queue: $QUEUE"
+echo "  Number of nodes: $NUM_NODES"
 echo "  Workers per node: $WORKERS_PER_NODE"
+echo "  Walltime: ${WALLTIME_HOURS}h (${WALLTIME_PBS})"
 echo "  PBS script: $PBS_SCRIPT"
 echo ""
 
-# Calculate parallelism for different node counts
+# Calculate parallelism for this configuration
 echo -e "${GREEN}Expected parallelism:${NC}"
-for nodes in 4 8 16 32; do
-    total_ranks=$((nodes * WORKERS_PER_NODE))
-    workers=$((total_ranks - 2))
-    echo "  $nodes nodes: $workers Dask workers ($((workers / nodes)) per node)"
-done
+TOTAL_RANKS=$((NUM_NODES * WORKERS_PER_NODE))
+EXPECTED_WORKERS=$((TOTAL_RANKS - 2))  # Minus scheduler and client
+echo "  Total MPI ranks: $TOTAL_RANKS"
+echo "  Dask workers: $EXPECTED_WORKERS (2 ranks used for scheduler + client)"
+
+# Calculate expected speedup
+if [ "$EXPECTED_WORKERS" -le 8 ]; then
+    SPEEDUP=$EXPECTED_WORKERS
+elif [ "$EXPECTED_WORKERS" -le 256 ]; then
+    SPEEDUP=$((EXPECTED_WORKERS * 75 / 100))
+    echo "  Expected speedup: ~${SPEEDUP}x vs single worker (75% efficiency)"
+else
+    SPEEDUP=$((EXPECTED_WORKERS * 60 / 100))
+    echo "  Expected speedup: ~${SPEEDUP}x vs single worker (60% efficiency)"
+fi
 echo ""
 
 # Memory estimate
@@ -117,9 +186,9 @@ if [[ ! $REPLY =~ ^[Yy]$ ]]; then
     exit 0
 fi
 
-# Submit job with WORKERS_PER_NODE variable
+# Submit job with WORKERS_PER_NODE variable, node count, and walltime overrides
 echo -e "${GREEN}Submitting job...${NC}"
-JOB_ID=$(qsub -v WORKERS_PER_NODE=${WORKERS_PER_NODE} "$PBS_SCRIPT")
+JOB_ID=$(qsub -v WORKERS_PER_NODE=${WORKERS_PER_NODE} -l select=${NUM_NODES}:system=crux -l walltime=${WALLTIME_PBS} "$PBS_SCRIPT")
 
 if [ $? -eq 0 ]; then
     echo -e "${GREEN}✓ Job submitted successfully${NC}"

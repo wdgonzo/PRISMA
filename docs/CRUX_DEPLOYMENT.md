@@ -361,6 +361,96 @@ Create recipe files in `~/Params/recipes/` (or `~/Processor/XRD/recipes/`):
 
 ## Job Submission
 
+### Quick Submit with Wrapper Script (Recommended)
+
+The easiest way to submit jobs is using the wrapper script, which handles all configuration automatically:
+
+**Usage:**
+```bash
+./scripts/submit_crux.sh <workers_per_node> [mode] [num_nodes] [walltime_hours]
+```
+
+**Arguments:**
+- `workers_per_node`: Number of Dask workers per node (1-128, default: 64)
+- `mode`: "debug" or "production" (default: debug)
+- `num_nodes`: Number of nodes - **PRODUCTION ONLY** (1-184, default: 32)
+- `walltime_hours`: Walltime in hours - **PRODUCTION ONLY** (1-24, default: 8)
+
+**Debug Mode Examples:**
+```bash
+# Debug mode (4 nodes, 2 hours - fixed)
+./scripts/submit_crux.sh 64 debug         # 64 workers/node
+./scripts/submit_crux.sh 128 debug        # 128 workers/node (max parallelism)
+```
+
+**Production Mode Examples:**
+```bash
+# Default: 32 nodes, 8 hours
+./scripts/submit_crux.sh 64 production
+
+# Custom nodes: 64 nodes, 8 hours (default walltime)
+./scripts/submit_crux.sh 64 production 64
+
+# Custom nodes and walltime: 64 nodes, 12 hours
+./scripts/submit_crux.sh 64 production 64 12
+
+# Large job: 128 nodes, 24 hours, max workers
+./scripts/submit_crux.sh 128 production 128 24
+
+# Quick test: 8 nodes, 2 hours
+./scripts/submit_crux.sh 96 production 8 2
+```
+
+**Parallelism Guide:**
+| Workers/Node | RAM/Worker | Use Case |
+|--------------|------------|----------|
+| 32           | ~8GB       | Conservative (safest for large memory requirements) |
+| 64           | ~4GB       | **Balanced (recommended default)** |
+| 96           | ~2.5GB     | Aggressive (good for typical XRD processing) |
+| 128          | ~2GB       | Maximum (use for compute-bound tasks only) |
+
+**Walltime Guide:**
+| Dataset Size | Recommended Time |
+|--------------|------------------|
+| Small (100-500 frames) | 2-4 hours |
+| Medium (500-2000 frames) | 4-8 hours |
+| Large (2000-5000 frames) | 8-12 hours |
+| Very large (5000+ frames) | 12-24 hours |
+
+**What the wrapper does:**
+- Validates all parameters before submission
+- Shows expected parallelism and memory usage
+- Calculates expected speedup
+- Provides memory warnings if needed
+- Asks for confirmation before submitting
+- Overrides PBS script settings automatically
+
+**Interactive Output Example:**
+```
+╔════════════════════════════════════════════════════════════╗
+║          Crux XRD Processing Job Submission            ║
+╚════════════════════════════════════════════════════════════╝
+
+Configuration:
+  Mode: production
+  Queue: workq-route
+  Number of nodes: 64
+  Workers per node: 64
+  Walltime: 12h (12:00:00)
+  PBS script: scripts/submit_crux_production.pbs
+
+Expected parallelism:
+  Total MPI ranks: 4096
+  Dask workers: 4094 (2 ranks used for scheduler + client)
+  Expected speedup: ~3070x vs single worker (75% efficiency)
+
+Memory estimate:
+  ~4GB RAM per worker
+  ✓ Adequate memory per worker
+
+Submit job? (y/n):
+```
+
 ### Testing with Debug Queue
 
 **Edit debug job script:**
@@ -398,7 +488,15 @@ qstat -f <JOBID>
 
 ### Production Jobs
 
-**Edit production job script:**
+**Recommended: Use the wrapper script (see above):**
+```bash
+./scripts/submit_crux.sh 64 production 64 12  # 64 nodes, 12 hours
+```
+
+**Alternative: Direct PBS submission (advanced users):**
+
+If you need to customize beyond what the wrapper provides, edit the PBS script directly:
+
 ```bash
 nano scripts/submit_crux_production.pbs
 ```
@@ -416,6 +514,8 @@ nano scripts/submit_crux_production.pbs
 ```bash
 qsub scripts/submit_crux_production.pbs
 ```
+
+**Note:** The wrapper script automatically overrides `select` and `walltime` parameters, so you don't need to edit the PBS script for routine changes.
 
 ---
 
@@ -986,10 +1086,11 @@ bash Processor/scripts/crux_setup.sh
 # Prepare recipe files (place in ~/Params/recipes/)
 ls ~/Params/recipes/*.json
 
-# Edit job script (nodes, walltime, project) if needed
-nano ~/Processor/scripts/submit_crux_production.pbs
+# Submit using wrapper script (recommended)
+cd ~/Processor
+./scripts/submit_crux.sh 64 production 32 8  # 32 nodes, 8 hours
 
-# Submit
+# OR: Direct submission (if wrapper not available)
 qsub ~/Processor/scripts/submit_crux_production.pbs
 
 # Monitor
