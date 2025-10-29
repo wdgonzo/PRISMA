@@ -75,7 +75,7 @@ def get_hpc_config() -> Dict[str, Any]:
         'distributed.worker.memory.terminate': 0.95,  # Terminate at 95%
 
         # Network optimization
-        'distributed.comm.compression': 'lz4',        # Fast compression for MPI
+        'distributed.comm.compression': 'auto',       # Auto-select best available compression
         'distributed.comm.timeouts.connect': '60s',   # Connection timeout
         'distributed.comm.timeouts.tcp': '60s',       # TCP timeout
 
