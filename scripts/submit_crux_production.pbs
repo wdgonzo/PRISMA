@@ -207,7 +207,16 @@ try:
         from GSASII import GSASIIscriptable as G2script
         print('✓ GSAS-II (direct import)')
     import fabio
-    print('✓ FabIO', fabio.__version__)
+    # FabIO doesn't consistently expose __version__, try alternatives
+    try:
+        version = fabio.__version__
+    except AttributeError:
+        try:
+            from importlib.metadata import version as get_version
+            version = get_version('fabio')
+        except Exception:
+            version = 'installed'
+    print('✓ FabIO', version)
     print('All imports successful!')
 except ImportError as e:
     print('✗ Import failed:', e)
