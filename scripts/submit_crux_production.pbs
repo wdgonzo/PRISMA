@@ -2,17 +2,24 @@
 ################################################################################
 # Crux Production Job Script
 # ===========================
-# Large-scale XRD processing on ALCF Crux supercomputer
+# Large-scale XRD batch processing on ALCF Crux supercomputer
 #
 # Queue: workq-route (1-184 nodes, up to 24 hours)
 # Purpose: Production processing of large datasets
 #
+# This script processes recipe JSON files using Dask-MPI parallelization:
+# - Reads recipes from Params/recipes/ or XRD/recipes/
+# - Performs GSAS-II peak fitting on diffraction images
+# - Generates compressed Zarr datasets
+# - Saves to Processed/{DateStamp}/{Sample}/Zarr/
+#
 # Usage:
-#   1. Edit the USER CONFIGURATION section below
-#   2. Adjust node count and walltime based on dataset size
-#   3. Submit: qsub scripts/submit_crux_production.pbs
-#   4. Monitor: qstat -u $USER
-#   5. Check output: tail -f xrd_prod_*.o*
+#   1. Place recipe JSON files in ${HOME_DIR}/Params/recipes/
+#   2. Edit the USER CONFIGURATION section below
+#   3. Adjust node count and walltime based on dataset size
+#   4. Submit: qsub scripts/submit_crux_production.pbs
+#   5. Monitor: qstat -u $USER
+#   6. Check output: tail -f xrd_prod_*.o*
 #
 # Scaling Guidelines:
 #   Small datasets (100-500 frames):    4-8 nodes,   2-4 hours
@@ -51,8 +58,9 @@
 # -m abe: send email on (a)bort, (b)egin, (e)nd
 
 # Processing parameters
-# Edit your submitted_values.json file with full processing parameters
-# The script will use the JSON file for all processing settings
+# Place recipe JSON files in ${HOME_DIR}/Params/recipes/ before submission
+# Recipes define: sample, images, peaks, frames, azimuths, etc.
+# Use recipe_builder.py to create recipes or copy existing templates
 
 # File paths on Crux - Project software directory
 PROJECT_BASE="/eagle/APS_INSITU_STUDY_APP"
@@ -219,42 +227,44 @@ else
 fi
 echo ""
 
-# Check for submitted_values.json
-if [ ! -f "XRD/submitted_values.json" ]; then
-    echo "ERROR: submitted_values.json not found!"
-    echo "Please create this file with your processing parameters"
-    echo "See docs/CRUX_DEPLOYMENT.md for format details"
-    exit 1
+# Check for recipe files
+RECIPE_COUNT=$(find "${HOME_DIR}/Params/recipes/" -maxdepth 1 -name "*.json" 2>/dev/null | wc -l)
+if [ "${RECIPE_COUNT}" -eq 0 ]; then
+    # Fallback to XRD/recipes if Params/recipes doesn't exist or is empty
+    RECIPE_COUNT=$(find "${PROCESSOR_DIR}/XRD/recipes/" -maxdepth 1 -name "*.json" 2>/dev/null | wc -l)
+    if [ "${RECIPE_COUNT}" -eq 0 ]; then
+        echo "ERROR: No recipe JSON files found!"
+        echo "Searched in:"
+        echo "  ${HOME_DIR}/Params/recipes/"
+        echo "  ${PROCESSOR_DIR}/XRD/recipes/"
+        echo ""
+        echo "Please create recipe files using recipe_builder.py"
+        echo "See docs/CRUX_DEPLOYMENT.md for recipe format"
+        exit 1
+    fi
 fi
 
-echo "Configuration file: XRD/submitted_values.json"
-echo "Configuration preview:"
-python -c "
-import json
-with open('XRD/submitted_values.json', 'r') as f:
-    config = json.load(f)
-print(f\"  Sample: {config.get('sample', 'N/A')}\")
-print(f\"  Setting: {config.get('setting', 'N/A')}\")
-print(f\"  Stage: {config.get('stage', 'N/A')}\")
-print(f\"  Peaks: {len(config.get('active_peaks', []))}\")
-print(f\"  Frame range: {config.get('frames', 'N/A')}\")
-print(f\"  Azimuth range: {config.get('azimuths', 'N/A')}\")
-"
+echo "Found ${RECIPE_COUNT} recipe file(s) to process"
 echo ""
 
 # Start timing
 START_TIME=$(date +%s)
 
-echo "Launching XRD processing with Dask-MPI..."
+echo "Launching XRD batch processing with Dask-MPI..."
 echo "Time: $(date '+%Y-%m-%d %H:%M:%S')"
 echo ""
 
-# Execute processing with Dask-MPI
+# Execute batch processing with Dask-MPI
 # mpiexec automatically distributes across nodes from PBS_NODEFILE
+# Batch processor will:
+# - Read recipe JSON files from Params/recipes/ or XRD/recipes/
+# - Process diffraction images with GSAS-II peak fitting
+# - Generate Zarr datasets in Processed/{DateStamp}/{Sample}/Zarr/
+# - Move processed recipes to recipes/processed/
 mpiexec -n ${TOTAL_RANKS} \
     -ppn 1 \
     --cpu-bind verbose \
-    python XRD/visualization/data_visualization.py
+    python XRD/processing/batch_processor.py --home "${HOME_DIR}"
 
 EXIT_CODE=$?
 
@@ -281,56 +291,35 @@ if [ ${EXIT_CODE} -eq 0 ]; then
 
     # Calculate performance metrics
     echo "Performance metrics:"
-    python -c "
-import json
-try:
-    with open('XRD/submitted_values.json', 'r') as f:
-        config = json.load(f)
-    frames = config.get('frames', [0, 1])
-    if frames[1] == -1:
-        print('  Total frames: Full dataset')
-    else:
-        total_frames = (frames[1] - frames[0]) // config.get('step', 1)
-        elapsed = ${ELAPSED_TIME}
-        if elapsed > 0:
-            rate = total_frames / elapsed
-            print(f'  Total frames processed: {total_frames}')
-            print(f'  Processing rate: {rate:.2f} frames/second')
-            print(f'  Time per frame: {elapsed/total_frames:.2f} seconds')
-except:
-    pass
-"
+    echo "  Processing time: ${HOURS}h ${MINUTES}m ${SECONDS}s"
+    echo "  Nodes used: ${NUM_NODES}"
+    echo "  Workers: $((TOTAL_RANKS - 2))"
+    echo "  Recipe files processed: ${RECIPE_COUNT}"
     echo ""
-    echo "Output location:"
-    python -c "
-import json
-try:
-    with open('XRD/submitted_values.json', 'r') as f:
-        config = json.load(f)
-    sample = config.get('sample', 'unknown')
-    setting = config.get('setting', 'unknown')
-    stage = config.get('stage', 'unknown')
-    print(f'  Images: {config.get(\"image_folder\", \"N/A\")}/Images/{setting}-{sample}-{stage}/')
-    print(f'  Zarr data: {config.get(\"image_folder\", \"N/A\")}/Zarr/')
-except:
-    print('  Check XRD/submitted_values.json for paths')
-"
+
+    echo "Output locations:"
+    echo "  Zarr datasets: ${HOME_DIR}/Processed/<DateStamp>/<Sample>/Zarr/<ParamsString>/"
+    echo "  Intensity plots: ${HOME_DIR}/Processed/<DateStamp>/<Sample>/Intensity/<ParamsString>/"
+    echo "  Processed recipes: ${HOME_DIR}/Params/recipes/processed/ (or XRD/recipes/processed/)"
     echo ""
+
     echo "Next steps:"
-    echo "  1. Review output heatmaps (PNG files)"
-    echo "  2. Analyze processed data in Zarr directory"
-    echo "  3. Check CSV files for numerical data"
+    echo "  1. Check Zarr datasets: python XRD/tools/check_zarr.py <path-to-zarr>"
+    echo "  2. Visualize data: python run_data_analyzer.py (GUI)"
+    echo "  3. Transfer data: rsync from ${HOME_DIR}/Processed/"
+    echo "  4. Review processing logs in recipes/processed/"
 
 else
     echo "Status: FAILED ✗"
     echo ""
     echo "Troubleshooting:"
     echo "  1. Check error messages above"
-    echo "  2. Verify submitted_values.json is valid"
-    echo "  3. Check data paths and permissions"
-    echo "  4. Verify GSAS-II installation"
-    echo "  5. Review full output: cat ${HOME}/xrd_prod_${PBS_JOBID}.out"
-    echo "  6. For help: contact [email protected]"
+    echo "  2. Verify recipe JSON files exist in ${HOME_DIR}/Params/recipes/"
+    echo "  3. Check image paths in recipe files are valid"
+    echo "  4. Verify GSAS-II calibration files (.imctrl, .immask) exist"
+    echo "  5. Check data permissions and disk space"
+    echo "  6. Review full output: cat ${HOME}/xrd_prod_${PBS_JOBID}.out"
+    echo "  7. For help: docs/CRUX_DEPLOYMENT.md or contact support"
 fi
 
 echo "======================================================================="

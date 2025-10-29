@@ -317,18 +317,22 @@ chmod +x scripts/*.sh scripts/*.pbs
 
 This prevents the `$'\r': command not found` error. If using Git, the `.gitattributes` file handles this automatically.
 
-### Create Configuration File
+### Create Recipe Files
 
-Create `~/Processor/XRD/submitted_values.json` with your processing parameters:
+**Batch processing requires recipe JSON files** that define processing parameters for each dataset.
+
+Create recipe files in `~/Params/recipes/` (or `~/Processor/XRD/recipes/`):
 
 ```json
 {
   "sample": "YourSample",
   "setting": "YourSetting",
   "stage": "BEF",
-  "image_folder": "/home/yourusername/xrd_data",
-  "control_file": "/home/yourusername/xrd_data/calibration.imctrl",
-  "mask_file": "/home/yourusername/xrd_data/mask.immask",
+  "home_dir": "/eagle/YourProject",
+  "images_path": "/eagle/YourProject/Data/Mar2023/Sample",
+  "control_file": "/eagle/YourProject/Data/Calibration/calibration.imctrl",
+  "mask_file": "/eagle/YourProject/Data/Calibration/mask.immask",
+  "exposure": "019",
   "active_peaks": [
     {
       "name": "Peak 211",
@@ -337,15 +341,21 @@ Create `~/Processor/XRD/submitted_values.json` with your processing parameters:
       "limits": [7.2, 9.0]
     }
   ],
-  "azimuths": [0, 360],
-  "frames": [0, -1],
+  "az_start": -90,
+  "az_end": 90,
+  "frame_start": 0,
+  "frame_end": 500,
   "spacing": 5,
   "step": 1,
-  "pixel_size": [172.0, 172.0],
-  "wavelength": 0.240,
-  "detector_size": [1475, 1679]
+  "notes": "Example recipe for HPC batch processing"
 }
 ```
+
+**Tips:**
+- Use `recipe_builder.py` locally to generate recipes with GUI
+- Place multiple recipe files for batch processing
+- Recipes are automatically moved to `processed/` after completion
+- Batch processor reads from `Params/recipes/` or `XRD/recipes/` directories
 
 ---
 
@@ -723,8 +733,9 @@ cat ~/xrd_prod_<JOBID>.out
 # 1. Invalid project name
 grep "Invalid project" ~/xrd_prod_<JOBID>.out
 
-# 2. Missing submitted_values.json
-ls -l ~/Processor/XRD/submitted_values.json
+# 2. Missing recipe files
+ls -l ~/Params/recipes/*.json
+ls -l ~/Processor/XRD/recipes/*.json
 
 # 3. GSAS-II not found
 python -c "import G2script"
@@ -797,7 +808,7 @@ distributed.worker.memory - WARNING - Worker is at 95% memory usage
 
 1. **Reduce chunk size:**
 ```python
-# In submitted_values.json, reduce spacing:
+# In recipe JSON files, reduce spacing:
 "spacing": 2  # Instead of 5
 ```
 
@@ -855,7 +866,7 @@ qstat -a | grep workq-route
 **For CPU-intensive workloads:**
 ```bash
 # Use multiple ranks per node
-mpiexec -n 64 -ppn 2 python XRD/visualization/data_visualization.py
+mpiexec -n 64 -ppn 2 python XRD/processing/batch_processor.py --home /eagle/YourProject
 # 32 nodes × 2 ranks = 64 total ranks
 ```
 
@@ -864,7 +875,7 @@ mpiexec -n 64 -ppn 2 python XRD/visualization/data_visualization.py
 # Use fewer workers per node (default is 1 per node)
 # Gives each worker more memory
 #PBS -l select=64:system=crux
-mpiexec -n 32 -ppn 1 python XRD/visualization/data_visualization.py
+mpiexec -n 32 -ppn 1 python XRD/processing/batch_processor.py --home /eagle/YourProject
 # Uses only half the nodes as workers, 2x memory per worker
 ```
 
@@ -886,9 +897,9 @@ Process multiple samples in a single job:
 ```bash
 # Create wrapper script: process_batch.py
 import os
-samples = ['Sample1', 'Sample2', 'Sample3']
-for sample in samples:
-    os.system(f'python XRD/visualization/data_visualization.py {sample}')
+# Note: batch_processor.py automatically processes all recipes in recipes/ directory
+# Create separate recipe JSON files for each sample/configuration
+# They will all be processed in one job
 
 # In PBS script:
 mpiexec -n ${TOTAL_RANKS} python process_batch.py
@@ -972,10 +983,10 @@ bash Processor/scripts/crux_setup.sh
 
 ### Every Job Submission
 ```bash
-# Edit configuration
-nano ~/Processor/XRD/submitted_values.json
+# Prepare recipe files (place in ~/Params/recipes/)
+ls ~/Params/recipes/*.json
 
-# Edit job script (nodes, walltime, project)
+# Edit job script (nodes, walltime, project) if needed
 nano ~/Processor/scripts/submit_crux_production.pbs
 
 # Submit

@@ -2,16 +2,23 @@
 ################################################################################
 # Crux Debug Job Script
 # ======================
-# Quick testing job for XRD processing on ALCF Crux supercomputer
+# Quick testing job for XRD batch processing on ALCF Crux supercomputer
 #
 # Queue: debug (1-8 nodes, up to 2 hours)
 # Purpose: Testing and development with fast turnaround
 #
+# This script processes recipe JSON files using Dask-MPI parallelization:
+# - Reads recipes from Params/recipes/ or XRD/recipes/
+# - Performs GSAS-II peak fitting on diffraction images
+# - Generates compressed Zarr datasets
+# - Saves to Processed/{DateStamp}/{Sample}/Zarr/
+#
 # Usage:
-#   1. Edit the USER CONFIGURATION section below
-#   2. Submit: qsub scripts/submit_crux_debug.pbs
-#   3. Monitor: qstat -u $USER
-#   4. Check output: tail -f xrd_debug_*.o*
+#   1. Place recipe JSON files in ${HOME_DIR}/Params/recipes/
+#   2. Edit the USER CONFIGURATION section below
+#   3. Submit: qsub scripts/submit_crux_debug.pbs
+#   4. Monitor: qstat -u $USER
+#   5. Check output: tail -f xrd_debug_*.o*
 #
 # Author: William Gonzalez
 # Date: January 2025
@@ -34,8 +41,9 @@
 # Project allocation (REQUIRED - get from ALCF)
 # Replace YourProjectName in #PBS -A above with your actual project name
 
-# Processing parameters (edit submitted_values.json or set here)
-# These will be used to locate your submitted_values.json file
+# Processing parameters
+# These are used for documentation/reference only
+# Actual parameters are read from recipe JSON files
 SAMPLE_NAME="5A2"
 SETTING_NAME="30x50"
 STAGE_NAME="BEF"
@@ -152,19 +160,27 @@ echo "  Total ranks: ${TOTAL_RANKS}"
 echo "  Ranks per node: 1"
 echo ""
 
-# Run processing with Dask-MPI
+# Run batch processing with Dask-MPI
 # Note: dask-mpi automatically sets up scheduler (1) + client (1) + workers (N-2)
 # With 4 nodes: 1 scheduler + 1 client + 2 workers
+#
+# Batch processor will:
+# - Read recipe JSON files from Params/recipes/ or XRD/recipes/
+# - Process diffraction images with GSAS-II peak fitting
+# - Generate Zarr datasets in Processed/{DateStamp}/{Sample}/Zarr/
+# - Move processed recipes to recipes/processed/
 
-echo "Launching XRD processing with Dask-MPI..."
+echo "Launching XRD batch processing with Dask-MPI..."
 echo "Expected configuration: 1 scheduler + 1 client + $((TOTAL_RANKS - 2)) workers"
 echo ""
 
-# Execute processing
+# Execute batch processing
+# The --home parameter specifies the base directory for data structure
+# (should contain Data/, Processed/, Params/ subdirectories)
 mpiexec -n ${TOTAL_RANKS} \
     -ppn 1 \
     --cpu-bind verbose \
-    python XRD/visualization/data_visualization.py
+    python XRD/processing/batch_processor.py --home "${HOME_DIR}"
 
 EXIT_CODE=$?
 
@@ -179,22 +195,24 @@ if [ ${EXIT_CODE} -eq 0 ]; then
     echo "Status: SUCCESS ✓"
     echo ""
     echo "Output files should be in:"
-    echo "  ${HOME_DIR}/Processed/<DateStamp>/${SAMPLE_NAME}/"
-    echo "    - Zarr/ (processed data)"
-    echo "    - Intensity/ (plots)"
+    echo "  ${HOME_DIR}/Processed/<DateStamp>/<Sample>/"
+    echo "    - Zarr/<ParamsString>/ (processed data)"
+    echo "    - Intensity/<ParamsString>/ (intensity plots per peak)"
     echo ""
     echo "Next steps:"
-    echo "  1. Review output heatmaps in Processed/ directory"
-    echo "  2. Check Zarr datasets for analysis"
+    echo "  1. Check Zarr datasets: use XRD/tools/check_zarr.py"
+    echo "  2. Visualize data: use run_data_analyzer.py (GUI) or data_visualization.py"
     echo "  3. If successful, scale up with submit_crux_production.pbs"
+    echo "  4. Transfer data: rsync from ${HOME_DIR}/Processed/"
 else
     echo "Status: FAILED ✗"
     echo ""
     echo "Troubleshooting:"
     echo "  1. Check error messages above"
-    echo "  2. Verify submitted_values.json exists and is valid"
-    echo "  3. Check data paths and permissions"
-    echo "  4. Review full output: cat ${HOME}/xrd_debug_${PBS_JOBID}.out"
+    echo "  2. Verify recipe JSON files exist in ${HOME_DIR}/Params/recipes/"
+    echo "  3. Check image paths and GSAS-II calibration files in recipes"
+    echo "  4. Verify data permissions and disk space"
+    echo "  5. Review full output: cat ${HOME}/xrd_debug_${PBS_JOBID}.out"
 fi
 
 echo "======================================================================="
