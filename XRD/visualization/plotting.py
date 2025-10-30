@@ -326,7 +326,18 @@ def configure_axis_ticks(data: pd.DataFrame, params, values: dict, ax):
         ax.margins(0)
 
     # Configure y-axis ticks based on data type
-    if params.in_situ:
+    if values.get("show_frame_ticks", False):
+        # Frame number mode: show frame indices
+        y_ticks = np.linspace(0, len(data.index) - 1, min(15, len(data.index)), dtype=int)
+        ax.set_yticks(y_ticks)
+        ax.set_yticklabels([f"{i}" for i in y_ticks])
+
+        if not values.get("plot_with_cof", False):
+            plt.subplots_adjust(left=0.17, right=0.90, top=0.98, bottom=0.01)
+        else:
+            plt.tight_layout()
+
+    elif params.in_situ:
         # Time-based: 15 evenly spaced ticks
         y_ticks = np.linspace(0, len(data.index) - 1, 15, dtype=int)
         ax.set_yticks(y_ticks)

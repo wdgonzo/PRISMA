@@ -92,6 +92,11 @@ def get_hpc_config() -> Dict[str, Any]:
         'distributed.scheduler.events-log-length': 1000,   # Reduce event tracking (from default 100000)
         'distributed.admin.log-length': 100,               # Reduce admin logging
 
+        # Scheduler behavior (CRITICAL for massive scale - prevent premature shutdown)
+        'distributed.scheduler.idle-timeout': '0',         # Disable idle timeout (never auto-shutdown during initialization)
+        'distributed.admin.tick.interval': '100ms',        # Slower ticks for 8K+ workers (reduce overhead)
+        'distributed.admin.tick.limit': '10s',             # Allow longer scheduler ticks at scale
+
         # Logging (minimal for HPC - prevent I/O storms with many workers)
         'distributed.scheduler.log-length': 100,           # Reduced from 1000
         'distributed.worker.log-length': 100,              # Reduced from 1000
@@ -252,7 +257,29 @@ def get_dask_client(
             # Get client (only rank 0 has access)
             client = Client()
 
+            # Wait for all workers to be ready (CRITICAL for massive scale)
+            if rank == 0:
+                expected_workers = size - 2  # Total ranks minus scheduler and client
+
+                if verbose:
+                    print(f"\nWaiting for {expected_workers} workers to initialize...")
+                    print(f"This may take several minutes at scale ({size} MPI ranks)")
+
+                # Wait with timeout matching worker startup timeout (10 minutes)
+                try:
+                    client.wait_for_workers(n_workers=expected_workers, timeout=600)
+
+                    if verbose:
+                        actual_workers = len(client.scheduler_info()['workers'])
+                        print(f"✓ All {actual_workers} workers ready and connected")
+                        print(f"Worker initialization complete")
+                except TimeoutError:
+                    actual_workers = len(client.scheduler_info()['workers'])
+                    print(f"⚠ WARNING: Only {actual_workers}/{expected_workers} workers ready after 10 minutes")
+                    print(f"Proceeding with available workers - some may still be initializing")
+
             if verbose and rank == 0:
+                print(f"\nCluster Configuration:")
                 print(f"Scheduler: 1 process")
                 print(f"Client: 1 process (rank 0)")
                 print(f"Workers: {size - 2} processes")

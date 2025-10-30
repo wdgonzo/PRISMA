@@ -132,6 +132,7 @@ export DASK_DISTRIBUTED__WORKER__MEMORY__SPILL=0.80
 export DASK_DISTRIBUTED__WORKER__MEMORY__PAUSE=0.90
 export DASK_DISTRIBUTED__WORKER__MEMORY__TERMINATE=0.95
 export DASK_DISTRIBUTED__COMM__COMPRESSION=auto                     # auto (Crux requirement - lz4 doesn't work)
+export DASK_DISTRIBUTED__SCHEDULER__IDLE_TIMEOUT=0                  # CRITICAL: Disable idle timeout for 8K+ worker initialization (prevents 120s shutdown)
 
 echo "Environment configured:"
 echo "  Python: $(which python)"

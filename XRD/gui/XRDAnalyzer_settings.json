@@ -19,10 +19,10 @@
     "colormap": "icefire",
     "vmin": -0.005,
     "vmax": 0.005,
-    "auto_scale": false,
+    "auto_scale": true,
     "range_type": "full",
-    "start_time": 0.0,
-    "end_time": 999.0,
+    "start_time": 0.95,
+    "end_time": 1.02,
     "start_frame": 0,
     "end_frame": 999999
   },
@@ -53,7 +53,7 @@
     ]
   },
   "paths": {
-    "last_zarr_folder": "G:/Processed/2025-10-29/5A2/Zarr"
+    "last_zarr_folder": "G:/Processed/2025-10-29/5A2/Zarr/360deg-72bins-0sf-allfr-4.2l2t_9.3u2t-5peaks-0bkg-212629"
   },
   "ui_preferences": {
     "gallery_view_mode": "grid"

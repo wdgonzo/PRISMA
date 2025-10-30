@@ -76,6 +76,7 @@ class SettingsManager:
                 "vmin": -0.005,
                 "vmax": 0.005,
                 "auto_scale": True,
+                "show_frame_ticks": False,
                 "range_type": "full",
                 "start_time": 0.0,
                 "end_time": 1000.0,
@@ -397,7 +398,7 @@ class PlotCanvas(FigureCanvas):
         self.draw()
 
     def plot_heatmap(self, data, xlabel="Azimuth", ylabel="Time/Depth",
-                     colormap="viridis", vmin=None, vmax=None, cbar_label="", measurement_type="", azimuth_range=(-110, 110), spacing=5, title="", is_time_based=True):
+                     colormap="viridis", vmin=None, vmax=None, cbar_label="", measurement_type="", azimuth_range=(-110, 110), spacing=5, title="", is_time_based=True, show_frame_ticks=False):
         """Plot a heatmap matching the old visualization implementation."""
         self.fig.clear()
 
@@ -435,7 +436,7 @@ class PlotCanvas(FigureCanvas):
         ax.set_ylabel(ylabel)
 
         # Configure axis tick formatting to match old implementation
-        self.configure_axis_formatting(ax, data, azimuth_range, is_time_based)
+        self.configure_axis_formatting(ax, data, azimuth_range, is_time_based, show_frame_ticks)
 
         # Set aspect ratio for square pixels (matching old implementation)
         if hasattr(data, 'index') and len(data.index) > 0:
@@ -454,7 +455,7 @@ class PlotCanvas(FigureCanvas):
         # Restore original font size
         mpl.rcParams.update({'font.size': original_fontsize})
 
-    def configure_axis_formatting(self, ax, data, azimuth_range=(-110, 110), is_time_based=True):
+    def configure_axis_formatting(self, ax, data, azimuth_range=(-110, 110), is_time_based=True, show_frame_ticks=False):
         """Configure axis tick formatting to match old visualization implementation."""
 
         # X-axis formatting (azimuth angles)
@@ -509,7 +510,12 @@ class PlotCanvas(FigureCanvas):
         # Y-axis formatting based on data type
         if hasattr(data, 'index') and len(data.index) > 0:
             try:
-                if is_time_based:
+                if show_frame_ticks:
+                    # Frame number mode: show frame indices
+                    y_ticks = np.linspace(0, len(data.index) - 1, min(15, len(data.index)), dtype=int)
+                    ax.set_yticks(y_ticks)
+                    ax.set_yticklabels([f"{i}" for i in y_ticks])
+                elif is_time_based:
                     # Time-based: 15 evenly spaced ticks (matching old visualizer)
                     y_ticks = np.linspace(0, len(data.index) - 1, 15, dtype=int)
                     ax.set_yticks(y_ticks)
@@ -679,6 +685,10 @@ class AnalysisTab(QWidget):
         self.auto_scale_check.setChecked(True)
         self.auto_scale_check.toggled.connect(self.on_auto_scale_toggled)
 
+        self.show_frame_ticks_check = QCheckBox()
+        self.show_frame_ticks_check.setChecked(False)
+        self.show_frame_ticks_check.toggled.connect(self.on_parameter_changed)
+
         params_layout.addRow("Measurement:", self.measurement_combo)
         params_layout.addRow("", self.delta_check)
         params_layout.addRow("", self.abs_check)
@@ -689,6 +699,7 @@ class AnalysisTab(QWidget):
         params_layout.addRow("Min Value:", self.vmin_spin)
         params_layout.addRow("Max Value:", self.vmax_spin)
         params_layout.addRow("Auto Scale:", self.auto_scale_check)
+        params_layout.addRow("Show Frame Numbers:", self.show_frame_ticks_check)
 
         params_group.setLayout(params_layout)
         layout.addWidget(params_group)
@@ -1679,6 +1690,8 @@ class DataAnalyzer(QMainWindow):
                 tab.vmax_spin.setValue(defaults["vmax"])
             if hasattr(tab, 'auto_scale_check'):
                 tab.auto_scale_check.setChecked(defaults["auto_scale"])
+            if hasattr(tab, 'show_frame_ticks_check'):
+                tab.show_frame_ticks_check.setChecked(defaults.get("show_frame_ticks", False))
 
             # Set checkboxes
             if hasattr(tab, 'delta_check'):
@@ -1800,6 +1813,8 @@ class DataAnalyzer(QMainWindow):
                 defaults["vmax"] = tab.vmax_spin.value()
             if hasattr(tab, 'auto_scale_check'):
                 defaults["auto_scale"] = tab.auto_scale_check.isChecked()
+            if hasattr(tab, 'show_frame_ticks_check'):
+                defaults["show_frame_ticks"] = tab.show_frame_ticks_check.isChecked()
 
             # Save checkboxes
             if hasattr(tab, 'delta_check'):
@@ -2354,7 +2369,8 @@ class DataAnalyzer(QMainWindow):
                 azimuth_range=azimuth_range,
                 spacing=spacing,
                 title=title,
-                is_time_based=is_in_situ  # Pass the correct time/depth flag
+                is_time_based=is_in_situ,  # Pass the correct time/depth flag
+                show_frame_ticks=self.show_frame_ticks_check.isChecked()
             )
 
             # Add to gallery if generating
