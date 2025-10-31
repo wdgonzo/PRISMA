@@ -670,13 +670,13 @@ class AnalysisTab(QWidget):
         self.colormap_combo.addItems(["icefire", "viridis", "plasma", "inferno", "coolwarm", "RdBu_r"])
 
         self.vmin_spin = QDoubleSpinBox()
-        self.vmin_spin.setRange(-10.0, 10.0)
+        self.vmin_spin.setRange(-999.0, 999.0)
         self.vmin_spin.setSingleStep(0.001)
         self.vmin_spin.setDecimals(4)
         self.vmin_spin.setValue(-0.005)
 
         self.vmax_spin = QDoubleSpinBox()
-        self.vmax_spin.setRange(-10.0, 10.0)
+        self.vmax_spin.setRange(-999.0, 999.0)
         self.vmax_spin.setSingleStep(0.001)
         self.vmax_spin.setDecimals(4)
         self.vmax_spin.setValue(0.005)

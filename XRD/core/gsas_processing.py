@@ -18,7 +18,7 @@ Version: Beta 0.1
 import pandas as pd
 import json
 from dataclasses import dataclass
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Union
 from datetime import datetime
 import warnings
 
@@ -902,7 +902,7 @@ class GSASParams:
     # File paths
     control_file: str
     mask_file: str
-    intplot_export: bool
+    intplot_export: Union[bool, str]  # False, True/"plots", or "zarr_only"
 
     # Sample information
     sample: str
@@ -971,7 +971,29 @@ class GSASParams:
     def num_peaks(self) -> int:
         """Return number of active peaks."""
         return len(self.active_peaks)
-    
+
+    def get_intplot_mode(self) -> str:
+        """
+        Normalize intplot_export value to a standard mode string.
+
+        Returns:
+            "disabled" - Normal processing (fit peaks, save XRDDataset)
+            "plots" - Generate intensity plots + zarr data
+            "zarr_only" - Generate zarr data only, skip plots
+        """
+        if isinstance(self.intplot_export, bool):
+            return "plots" if self.intplot_export else "disabled"
+        elif isinstance(self.intplot_export, str):
+            mode = self.intplot_export.lower().strip()
+            if mode in ("zarr_only", "zarr", "data_only"):
+                return "zarr_only"
+            elif mode in ("plots", "both", "all"):
+                return "plots"
+            else:
+                return "disabled"
+        else:
+            return "disabled"
+
     def filename(self) -> str:
         """Generate base filename for this dataset with peak info."""
         peak_names = "-".join([peak.miller_index for peak in self.active_peaks[:2]])  # Limit to first 2 peaks
@@ -1340,8 +1362,9 @@ def _process_single_frame(file: str, params: GSASParams, frame_index: int,
     for _ in range(len(active_peaks)):
         peak_results.append([])
 
-    # Handle intensity plot export mode
-    if params.intplot_export:
+    # Handle intensity plot export mode (both plots and zarr_only)
+    intplot_mode = params.get_intplot_mode()
+    if intplot_mode in ("plots", "zarr_only"):
         # Extract powder pattern data WITHOUT fitting
         powder_data = []
         for histo_index, current_histo in enumerate(az_histos):
@@ -1702,6 +1725,146 @@ def _perform_fast_refinement(histo, peak_ref, back_ref=[False, False, False, Fal
     return True
 
 
+def save_intensity_data_to_zarr(powder_data_list: List[List[Dict]],
+                                params: 'GSASParams',
+                                sample_frames: List,
+                                output_dir: str) -> None:
+    """
+    Save intensity plot data to Zarr format before plotting.
+
+    Structure: (n_frames, n_azimuths, n_two_theta_points)
+    Similar to XRDDataset format but for raw intensity patterns.
+
+    Args:
+        powder_data_list: List of powder data (one list per frame, each containing dicts per azimuth)
+        params: GSAS processing parameters
+        sample_frames: Frame information for labeling
+        output_dir: Directory where plots will be saved
+    """
+    import zarr
+    import dask.array as da
+    from zarr.codecs import BloscCodec, BytesCodec
+    import numcodecs
+
+    print("\n" + "="*70)
+    print("SAVING INTENSITY DATA TO ZARR")
+    print("="*70)
+
+    # Determine dimensions
+    n_frames = len(powder_data_list)
+    n_azimuths = len(powder_data_list[0]) if powder_data_list else 0
+    n_two_theta_points = len(powder_data_list[0][0]['two_theta']) if powder_data_list and powder_data_list[0] else 0
+
+    print(f"Data dimensions:")
+    print(f"  Frames: {n_frames}")
+    print(f"  Azimuths per frame: {n_azimuths}")
+    print(f"  2θ points per pattern: {n_two_theta_points}")
+
+    # Create zarr subdirectory in output_dir
+    zarr_dir = os.path.join(output_dir, "intensity_data.zarr")
+    os.makedirs(zarr_dir, exist_ok=True)
+
+    # Initialize arrays
+    intensity_data = np.zeros((n_frames, n_azimuths, n_two_theta_points), dtype=np.float32)
+    azimuth_angles = np.zeros(n_azimuths, dtype=np.float32)
+    frame_numbers = np.zeros(n_frames, dtype=np.int32)
+    two_theta_array = None  # Will be extracted from first frame (should be identical for all)
+
+    # Populate arrays
+    print("Collecting data from powder patterns...")
+    for frame_idx, powder_data_frame in enumerate(powder_data_list):
+        frame_numbers[frame_idx] = sample_frames[frame_idx].frame_index
+
+        for az_idx, az_data in enumerate(powder_data_frame):
+            # Store intensity data
+            intensity_data[frame_idx, az_idx, :] = az_data['intensity']
+
+            # Store azimuth angle (same for all frames)
+            if frame_idx == 0:
+                azimuth_angles[az_idx] = az_data['azimuth']
+
+            # Store 2θ array (should be identical for all frames/azimuths)
+            if two_theta_array is None:
+                two_theta_array = az_data['two_theta'].astype(np.float32)
+
+    # Configure Zarr compression (same as XRDDataset)
+    zarr_version = getattr(zarr, '__version__', '3.0.0')
+
+    if zarr_version.startswith('3'):
+        print(f"Using Zarr v3 ({zarr_version}) with optimized BloscCodec...")
+        # Create BloscCodec instance
+        codec = BloscCodec(cname='zstd', clevel=3, shuffle='shuffle', typesize=4)
+        zarr_kwargs = {'codecs': [BytesCodec(), codec]}
+    else:
+        print(f"Using Zarr v2 ({zarr_version}) with compressor fallback...")
+        fallback_codec = numcodecs.Blosc(cname='zstd', clevel=3, shuffle=numcodecs.Blosc.SHUFFLE)
+        zarr_kwargs = {'compressor': fallback_codec}
+
+    # Convert to dask arrays for efficient zarr saving
+    print("Converting to Dask arrays for efficient storage...")
+    intensity_dask = da.from_array(intensity_data, chunks=(min(10, n_frames), n_azimuths, n_two_theta_points))
+    azimuth_dask = da.from_array(azimuth_angles, chunks=n_azimuths)
+    frame_dask = da.from_array(frame_numbers, chunks=n_frames)
+    two_theta_dask = da.from_array(two_theta_array, chunks=n_two_theta_points)
+
+    # Save to zarr
+    print("Writing data to Zarr files...")
+    intensity_dask.to_zarr(f"{zarr_dir}/intensity.zarr", overwrite=True, **zarr_kwargs)
+    azimuth_dask.to_zarr(f"{zarr_dir}/azimuth_angles.zarr", overwrite=True, **zarr_kwargs)
+    frame_dask.to_zarr(f"{zarr_dir}/frame_numbers.zarr", overwrite=True, **zarr_kwargs)
+    two_theta_dask.to_zarr(f"{zarr_dir}/two_theta.zarr", overwrite=True, **zarr_kwargs)
+
+    # Save metadata
+    metadata = {
+        'n_frames': int(n_frames),
+        'n_azimuths': int(n_azimuths),
+        'n_two_theta_points': int(n_two_theta_points),
+        'data_shape': [int(n_frames), int(n_azimuths), int(n_two_theta_points)],
+        'two_theta_range': [float(two_theta_array[0]), float(two_theta_array[-1])],
+        'frame_range': [int(frame_numbers[0]), int(frame_numbers[-1])],
+        'azimuth_range': [float(azimuth_angles[0]), float(azimuth_angles[-1])],
+        'params': {
+            'sample': params.sample,
+            'setting': getattr(params, 'setting', 'Unknown'),
+            'stage': params.stage,
+            'spacing': params.spacing,
+            'active_peaks': [
+                {
+                    'name': peak.name,
+                    'miller_index': peak.miller_index,
+                    'position': peak.position,
+                    'limits': peak.limits
+                } for peak in params.active_peaks
+            ] if hasattr(params, 'active_peaks') else []
+        },
+        'created': datetime.now().isoformat(),
+        'description': 'Raw intensity patterns from powder diffraction data before fitting'
+    }
+
+    with open(f"{zarr_dir}/metadata.json", 'w') as f:
+        json.dump(metadata, f, indent=2)
+
+    # Calculate file sizes
+    total_size = sum(
+        os.path.getsize(os.path.join(zarr_dir, f))
+        for f in os.listdir(zarr_dir)
+        if os.path.isfile(os.path.join(zarr_dir, f))
+    ) / (1024**2)
+
+    uncompressed_size = intensity_data.nbytes / (1024**2)
+    compression_ratio = (1 - total_size / uncompressed_size) * 100 if uncompressed_size > 0 else 0
+
+    print(f"\n{'='*70}")
+    print("INTENSITY DATA SAVED SUCCESSFULLY")
+    print(f"{'='*70}")
+    print(f"Output directory: {zarr_dir}")
+    print(f"Data shape: {intensity_data.shape} (frames × azimuths × 2θ points)")
+    print(f"Uncompressed size: {uncompressed_size:.1f} MB")
+    print(f"Compressed size: {total_size:.1f} MB")
+    print(f"Compression ratio: {compression_ratio:.1f}%")
+    print(f"{'='*70}\n")
+
+
 def _create_single_plot(two_theta: np.ndarray, intensity: np.ndarray,
                        frame_number: int, azimuth: float,
                        sample: str, setting: str, stage: str,
@@ -1758,7 +1921,7 @@ def _create_single_plot(two_theta: np.ndarray, intensity: np.ndarray,
 
 
 def plot_intensity_patterns(powder_data_list: List[List[Dict]], params: GSASParams,
-                            sample_frames: List) -> None:
+                            sample_frames: List, generate_plots: bool = True) -> None:
     """
     Batch-plot powder pattern intensity data using parallel Dask execution.
 
@@ -1775,6 +1938,7 @@ def plot_intensity_patterns(powder_data_list: List[List[Dict]], params: GSASPara
         powder_data_list: List of powder data (one list per frame, each containing dicts per azimuth)
         params: GSAS processing parameters
         sample_frames: Frame information for labeling
+        generate_plots: If True, generate TIFF plots; if False, only save zarr data
     """
 
     # Set matplotlib rcParams for consistent output
@@ -1829,6 +1993,19 @@ def plot_intensity_patterns(powder_data_list: List[List[Dict]], params: GSASPara
     # Report limits for verification
     print(f"Global 2θ range: [{global_min_2theta:.3f}, {global_max_2theta:.3f}] degrees")
     print(f"Global intensity range: [{global_min_intensity:.1f}, {global_max_intensity:.1f}] counts")
+
+    # Save intensity data to Zarr before plotting
+    save_intensity_data_to_zarr(powder_data_list, params, sample_frames, output_dir)
+
+    # If only saving zarr data, skip plot generation
+    if not generate_plots:
+        print(f"\n{'='*70}")
+        print(f"INTENSITY DATA EXPORT COMPLETE (ZARR ONLY)")
+        print(f"{'='*70}")
+        print(f"Plots skipped - only Zarr data generated")
+        print(f"Output directory: {output_dir}")
+        print(f"{'='*70}\n")
+        return
 
     # Pre-create all frame subfolders to avoid race conditions
     print("Creating frame subfolders...")
@@ -1933,7 +2110,8 @@ def process_images(params: GSASParams, ref_steps) -> XRDDataset:
     ref_bkg = None
     reference_values = None
     reference_d_array = None
-    if not params.intplot_export:
+    intplot_mode = params.get_intplot_mode()
+    if intplot_mode == "disabled":
         ref_tasks = []
         for frame_info in ref_frames:
             ref_task = gsas_parallel(
@@ -2089,13 +2267,18 @@ def process_images(params: GSASParams, ref_steps) -> XRDDataset:
     sample_results = compute(*sample_tasks)
 
     # Handle intensity plot export mode
-    if params.intplot_export:
-        print("Intensity plot export mode - creating plots...")
-        plot_intensity_patterns(sample_results, params, sample_frames)
-        print("Intensity plots complete!")
+    intplot_mode = params.get_intplot_mode()
+    if intplot_mode in ("plots", "zarr_only"):
+        if intplot_mode == "plots":
+            print("Intensity plot export mode - creating plots + zarr data...")
+            plot_intensity_patterns(sample_results, params, sample_frames, generate_plots=True)
+        else:  # zarr_only
+            print("Intensity data export mode - saving zarr data only...")
+            plot_intensity_patterns(sample_results, params, sample_frames, generate_plots=False)
+        print("Intensity export complete!")
         return None  # Return early, no XRDDataset created
 
-    if not params.intplot_export:
+    if intplot_mode == "disabled":
         # Determine actual dimensions
         n_peaks = len(sample_results[0]) if sample_results else 0
         n_frames = len(sample_results)
