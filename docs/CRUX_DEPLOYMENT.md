@@ -625,6 +625,69 @@ Status: SUCCESS ✓
 Processing rate: 2.18 frames/second
 ```
 
+### Dask Dashboard Monitoring
+
+The Dask dashboard provides real-time visualization of your processing job. It shows:
+- **Worker utilization**: Which workers are busy vs idle
+- **Memory usage**: Per-worker and total memory consumption
+- **Task progress**: Visual graph of task dependencies and status
+- **Performance metrics**: Processing rate, bottlenecks, errors
+
+#### Quick Start
+
+**Step 1: Get the compute node hostname from job output**
+```bash
+grep "Compute Node:" ~/xrd_prod_<JOBID>.out
+# Example: Compute Node: x1921c0s7b0n0
+```
+
+**Step 2: Open a NEW terminal on your local machine and establish SSH tunnel**
+```bash
+# Recommended: Use the helper script
+./scripts/tunnel_dashboard.sh x1921c0s7b0n0
+
+# Or manually:
+ssh -L 8787:x1921c0s7b0n0:8787 crux.alcf.anl.gov
+```
+
+**Step 3: Open browser to dashboard**
+```
+http://localhost:8787
+```
+
+The tunnel must remain open while you're viewing the dashboard. Press Ctrl+C in the tunnel terminal to close when done.
+
+#### What to Look For
+
+**Healthy Processing:**
+- All workers show as "busy" (green) most of the time
+- Memory usage stable at 50-80%
+- Task stream shows continuous activity
+- No red error messages
+
+**Performance Issues:**
+- Workers showing "idle" (gray): Not enough parallelism, reduce chunk size
+- Memory at 90%+: Increase nodes or reduce data per task
+- Many tasks in "waiting": Bottleneck in data loading or I/O
+- Frequent worker restarts: Memory issues or crashes
+
+#### Troubleshooting Dashboard Access
+
+**Problem: Connection refused**
+- Check job is still running: `qstat -u $USER`
+- Verify hostname from job output
+- Ensure dashboard printed "Compute Node:" line
+
+**Problem: SSH tunnel fails**
+- Authenticate to CRUX first: `ssh crux.alcf.anl.gov` (then exit)
+- Check port 8787 not in use: `lsof -i :8787` (kill if needed)
+
+**Problem: Dashboard loads but shows no workers**
+- Workers may still be initializing (wait 1-2 minutes)
+- Check job output for errors: `tail -100 ~/xrd_prod_<JOBID>.out`
+
+See [DASHBOARD_ACCESS.md](DASHBOARD_ACCESS.md) for detailed troubleshooting.
+
 ### Interactive Testing
 
 For debugging, you can request an interactive session:
@@ -889,13 +952,33 @@ grep "Workers:" ~/xrd_prod_<JOBID>.out
 ```
 
 **Monitor dashboard:**
-```bash
-# Dashboard link is printed in job output
-grep "dashboard" ~/xrd_prod_<JOBID>.out
 
-# Note: Dashboard is not accessible outside Crux network
-# Only useful for interactive sessions
+The Dask dashboard provides real-time visualization of worker utilization, memory usage, task progress, and performance metrics. It's accessible via SSH tunnel:
+
+1. **Find the dashboard hostname** (printed when job starts):
+```bash
+grep "Compute Node:" ~/xrd_prod_<JOBID>.out
+# Example output: Compute Node: x1921c0s7b0n0
 ```
+
+2. **Establish SSH tunnel** from your local machine:
+```bash
+# Method 1: Manual tunnel
+ssh -L 8787:x1921c0s7b0n0:8787 crux.alcf.anl.gov
+
+# Method 2: Helper script (recommended)
+./scripts/tunnel_dashboard.sh x1921c0s7b0n0
+
+# Method 3: Auto-detect from job output
+./scripts/tunnel_dashboard.sh
+```
+
+3. **Open dashboard** in your browser:
+```
+http://localhost:8787
+```
+
+Keep the SSH tunnel terminal open while monitoring. See [Dashboard Access Guide](DASHBOARD_ACCESS.md) for troubleshooting.
 
 ### Problem: Out of Memory
 

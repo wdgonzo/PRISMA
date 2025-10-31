@@ -2370,7 +2370,7 @@ class DataAnalyzer(QMainWindow):
                 spacing=spacing,
                 title=title,
                 is_time_based=is_in_situ,  # Pass the correct time/depth flag
-                show_frame_ticks=self.show_frame_ticks_check.isChecked()
+                show_frame_ticks=getattr(self, 'show_frame_ticks_check', None) and self.show_frame_ticks_check.isChecked()
             )
 
             # Add to gallery if generating

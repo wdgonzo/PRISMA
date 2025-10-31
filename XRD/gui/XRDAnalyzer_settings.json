@@ -2,12 +2,12 @@
   "version": "3.0",
   "window": {
     "size": [
-      1400,
-      900
+      1920,
+      1017
     ],
     "position": [
-      98,
-      38
+      -1,
+      -8
     ]
   },
   "analysis_defaults": {
@@ -17,18 +17,19 @@
     "pct_enabled": false,
     "graphing_mode": "heatmap",
     "colormap": "icefire",
-    "vmin": -0.005,
-    "vmax": 0.005,
-    "auto_scale": true,
+    "vmin": -0.1,
+    "vmax": 2.0,
+    "auto_scale": false,
+    "show_frame_ticks": false,
     "range_type": "full",
     "start_time": 0.95,
     "end_time": 1.02,
-    "start_frame": 0,
-    "end_frame": 999999
+    "start_frame": 2800,
+    "end_frame": 3080
   },
   "batch_analysis": {
-    "frame_start": 150,
-    "frame_end": 160,
+    "frame_start": 3070,
+    "frame_end": 3080,
     "azimuth_ranges": [
       {
         "name": "Near Loading",

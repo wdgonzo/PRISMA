@@ -247,11 +247,13 @@ def get_dask_client(
             # Initialize Dask-MPI
             # One process becomes scheduler, one becomes client, rest become workers
             # Expected workers: size - 2
+            # Dashboard is bound to 0.0.0.0:8787 (accessible via SSH tunnel)
             initialize(
                 nthreads=threads_per_worker or 1,  # Threads per worker
                 local_directory=local_directory,   # Temporary storage
                 memory_limit=memory_limit,         # Memory per worker
                 interface=network_interface,       # Auto-detected HPC network (hsn0, ib0, etc.)
+                dashboard_address=':8787',         # Bind dashboard to port 8787 on all interfaces
             )
 
             # Get client (only rank 0 has access)
@@ -279,13 +281,27 @@ def get_dask_client(
                     print(f"Proceeding with available workers - some may still be initializing")
 
             if verbose and rank == 0:
+                import socket
+                hostname = socket.gethostname()
+
                 print(f"\nCluster Configuration:")
                 print(f"Scheduler: 1 process")
                 print(f"Client: 1 process (rank 0)")
                 print(f"Workers: {size - 2} processes")
                 print(f"Threads per worker: {threads_per_worker or 1}")
                 print(f"Memory limit per worker: {memory_limit}")
-                print(f"Cluster dashboard: {client.dashboard_link}")
+                print(f"\n{'=' * 60}")
+                print(f"DASK DASHBOARD ACCESS")
+                print(f"{'=' * 60}")
+                print(f"Dashboard URL: {client.dashboard_link}")
+                print(f"Compute Node: {hostname}")
+                print(f"\nTo view the dashboard from your local machine:")
+                print(f"1. Open a NEW terminal on your local machine")
+                print(f"2. Run this command:")
+                print(f"   ssh -L 8787:{hostname}:8787 crux.alcf.anl.gov")
+                print(f"3. Open browser to: http://localhost:8787")
+                print(f"\nOr use the helper script:")
+                print(f"   ./scripts/tunnel_dashboard.sh {hostname}")
                 print("=" * 60)
 
             return client
