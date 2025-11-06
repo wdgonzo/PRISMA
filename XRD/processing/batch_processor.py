@@ -37,6 +37,9 @@ def process_all_recipes(home_dir: str = None):
 
     Args:
         home_dir: Optional home directory. If None, uses current directory.
+
+    Returns:
+        List of dictionaries containing benchmark metrics for each recipe
     """
     from XRD.utils.path_manager import get_recipes_path, get_processed_recipes_path
 
@@ -57,13 +60,14 @@ def process_all_recipes(home_dir: str = None):
         print(f"No recipe files found in {recipe_dir}/")
         print("   Use recipe_builder.py to create recipes")
         print("   Or use --create-examples to generate sample recipes")
-        return
+        return []
 
     print(f"Found {len(recipe_files)} recipe files")
     print("=" * 60)
 
     success_count = 0
     error_count = 0
+    benchmark_metrics = []  # Collect benchmark data for each recipe
 
     for recipe_file in recipe_files:
         recipe_name = os.path.basename(recipe_file)
@@ -87,6 +91,22 @@ def process_all_recipes(home_dir: str = None):
                 print(f"   Success! Generated dataset in {processing_time:.1f}s")
                 print(f"   Shape: {dataset.data.shape}")
 
+                # Collect benchmark metrics
+                num_frames = dataset.data.shape[1]  # frames dimension
+                num_peaks = dataset.data.shape[0]   # peaks dimension
+                num_azimuths = dataset.data.shape[2]  # azimuths dimension
+
+                benchmark_metrics.append({
+                    'recipe_name': recipe_name,
+                    'sample': recipe_data.get('sample', 'Unknown'),
+                    'stage': recipe_data.get('stage', 'Unknown'),
+                    'num_frames': num_frames,
+                    'num_peaks': num_peaks,
+                    'num_azimuths': num_azimuths,
+                    'processing_time_sec': round(processing_time, 1),
+                    'status': 'SUCCESS'
+                })
+
                 # Verify save path exists
                 save_path = dataset.params.save_path()
                 if os.path.exists(save_path):
@@ -103,10 +123,36 @@ def process_all_recipes(home_dir: str = None):
                 success_count += 1
             else:
                 print(f"   Dataset generation failed")
+
+                # Record failed recipe in benchmarks
+                benchmark_metrics.append({
+                    'recipe_name': recipe_name,
+                    'sample': recipe_data.get('sample', 'Unknown'),
+                    'stage': recipe_data.get('stage', 'Unknown'),
+                    'num_frames': 0,
+                    'num_peaks': 0,
+                    'num_azimuths': 0,
+                    'processing_time_sec': round(processing_time, 1),
+                    'status': 'FAILED'
+                })
+
                 error_count += 1
 
         except Exception as e:
             print(f"   Error: {str(e)}")
+
+            # Record exception in benchmarks
+            benchmark_metrics.append({
+                'recipe_name': recipe_name,
+                'sample': 'ERROR',
+                'stage': 'ERROR',
+                'num_frames': 0,
+                'num_peaks': 0,
+                'num_azimuths': 0,
+                'processing_time_sec': 0.0,
+                'status': 'ERROR'
+            })
+
             error_count += 1
             continue
 
@@ -116,6 +162,8 @@ def process_all_recipes(home_dir: str = None):
     print(f"   Successful: {success_count}")
     print(f"   Failed: {error_count}")
     print(f"   Total: {len(recipe_files)}")
+
+    return benchmark_metrics
 
 
 def create_example_recipes():
@@ -273,6 +321,112 @@ def process_single_recipe(recipe_name: str, home_dir: str = None):
         return False
 
 
+def get_cluster_info():
+    """
+    Get information about the Dask cluster (workers, nodes).
+
+    Returns:
+        Tuple of (num_workers, num_nodes, workers_per_node)
+    """
+    from XRD.hpc.cluster import is_mpi_environment
+
+    num_workers = 1  # Default for non-Dask execution
+    num_nodes = 1
+    workers_per_node = 1
+
+    try:
+        # Try to get Dask client if it exists
+        from distributed import get_client
+        try:
+            client = get_client()
+            scheduler_info = client.scheduler_info()
+            num_workers = len(scheduler_info['workers'])
+
+            # Check if running in MPI environment
+            if is_mpi_environment():
+                try:
+                    from mpi4py import MPI
+                    comm = MPI.COMM_WORLD
+                    num_nodes = comm.Get_size()
+
+                    # Try to get workers per node from environment
+                    workers_per_node = int(os.environ.get('WORKERS_PER_NODE', num_workers // max(1, num_nodes)))
+                except ImportError:
+                    # Fallback: estimate from worker count
+                    num_nodes = max(1, num_workers // 2)  # Rough estimate
+                    workers_per_node = num_workers // num_nodes
+            else:
+                # Local cluster - single node
+                num_nodes = 1
+                workers_per_node = num_workers
+
+        except ValueError:
+            # No client available - not using Dask
+            pass
+    except ImportError:
+        # Dask not available
+        pass
+
+    return num_workers, num_nodes, workers_per_node
+
+
+def write_benchmark_csv(benchmark_metrics, home_dir, total_time, num_workers, num_nodes, workers_per_node):
+    """
+    Write benchmark metrics to a CSV file.
+
+    Args:
+        benchmark_metrics: List of dictionaries with per-recipe metrics
+        home_dir: Base directory for output
+        total_time: Total batch processing time in seconds
+        num_workers: Number of Dask workers
+        num_nodes: Number of MPI nodes
+        workers_per_node: Workers per node configuration
+
+    Returns:
+        Path to the created benchmark file
+    """
+    # Create benchmarks directory
+    benchmark_dir = os.path.join(home_dir, "Params", "benchmarks")
+    os.makedirs(benchmark_dir, exist_ok=True)
+
+    # Generate timestamped filename
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    benchmark_file = os.path.join(benchmark_dir, f"batch_benchmark_{timestamp}.csv")
+
+    # Write CSV file with header comments and data
+    with open(benchmark_file, 'w') as f:
+        # Write metadata header (as comments)
+        f.write(f"# Batch Benchmark - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+        f.write(f"# Total Time: {total_time:.1f} seconds ({total_time/60:.1f} minutes)\n")
+        f.write(f"# Workers: {num_workers}, Nodes: {num_nodes}, Workers/Node: {workers_per_node}\n")
+        f.write("#\n")
+
+        # Write CSV header
+        f.write("Recipe,Sample,Stage,Frames,Peaks,Azimuths,Time_sec,Status\n")
+
+        # Write data rows
+        total_frames = 0
+        total_successful_time = 0
+        for metric in benchmark_metrics:
+            f.write(f"{metric['recipe_name']},{metric['sample']},{metric['stage']},"
+                   f"{metric['num_frames']},{metric['num_peaks']},{metric['num_azimuths']},"
+                   f"{metric['processing_time_sec']},{metric['status']}\n")
+
+            if metric['status'] == 'SUCCESS':
+                total_frames += metric['num_frames']
+                total_successful_time += metric['processing_time_sec']
+
+        # Write summary row
+        f.write("#\n")
+        f.write(f"# Summary: {len([m for m in benchmark_metrics if m['status'] == 'SUCCESS'])} successful recipes\n")
+        f.write(f"# Total frames processed: {total_frames}\n")
+        f.write(f"# Average time per recipe: {total_successful_time / max(1, len(benchmark_metrics)):.1f} seconds\n")
+        if total_frames > 0:
+            f.write(f"# Average time per frame: {total_successful_time / total_frames:.2f} seconds\n")
+
+    return benchmark_file
+
+
 def main():
     """
     Main function to handle command line arguments and execute batch processing.
@@ -314,12 +468,29 @@ def main():
     print("Processing all recipes for data generation...")
     print()
 
+    # Gather worker/core information before processing
+    num_workers, num_nodes, workers_per_node = get_cluster_info()
+
     # Start batch processing
     start_time = time.time()
-    process_all_recipes(home_dir)
+    benchmark_metrics = process_all_recipes(home_dir)
     total_time = time.time() - start_time
 
     print(f"\nBatch processing completed in {total_time:.1f} seconds")
+
+    # Write benchmark file if metrics were collected
+    if benchmark_metrics:
+        benchmark_file = write_benchmark_csv(
+            benchmark_metrics,
+            home_dir,
+            total_time,
+            num_workers,
+            num_nodes,
+            workers_per_node
+        )
+        print(f"\nBenchmark results saved to:")
+        print(f"   {benchmark_file}")
+
     print("Use data_analyzer.py to visualize generated data")
 
 
