@@ -6,13 +6,14 @@
 # parallelism.
 #
 # Usage:
-#   ./scripts/submit_crux.sh <workers_per_node> [mode] [num_nodes] [walltime_hours]
+#   ./scripts/submit_crux.sh <workers_per_node> [mode] [num_nodes] [walltime_hours] [--no-move]
 #
 # Arguments:
 #   workers_per_node: Number of Dask workers per node (1-128)
 #   mode: "debug" or "production" (default: debug)
 #   num_nodes: Number of nodes (PRODUCTION ONLY, 1-184, default: 32)
 #   walltime_hours: Walltime in hours (PRODUCTION ONLY, 1-24, default: 8)
+#   --no-move: Optional flag to keep recipes in place after processing (not moved to processed/)
 #
 # Examples:
 #   ./scripts/submit_crux.sh 64                        # 64 workers/node, debug (4 nodes, 2hr fixed)
@@ -21,6 +22,7 @@
 #   ./scripts/submit_crux.sh 64 production 64          # 64 workers/node, production, 64 nodes, 8hr
 #   ./scripts/submit_crux.sh 64 production 64 12       # 64 workers/node, production, 64 nodes, 12hr
 #   ./scripts/submit_crux.sh 128 production 128 24     # 128 workers/node, production, 128 nodes, 24hr
+#   ./scripts/submit_crux.sh 64 production 32 8 --no-move  # Keep recipes in place after processing
 #
 # Parallelism Guide:
 #   Conservative:  32 workers/node  (~8GB RAM per worker)
@@ -50,6 +52,15 @@ WORKERS_PER_NODE=${1:-64}
 MODE=${2:-debug}
 NUM_NODES=${3}  # Optional, only for production
 WALLTIME_HOURS=${4}  # Optional, only for production
+NO_MOVE_RECIPES="false"  # Default: move recipes after processing
+
+# Check for --no-move flag in any position
+for arg in "$@"; do
+    if [ "$arg" = "--no-move" ]; then
+        NO_MOVE_RECIPES="true"
+        break
+    fi
+done
 
 # Validate workers_per_node
 if ! [[ "$WORKERS_PER_NODE" =~ ^[0-9]+$ ]]; then
@@ -142,6 +153,11 @@ echo "  Number of nodes: $NUM_NODES"
 echo "  Workers per node: $WORKERS_PER_NODE"
 echo "  Walltime: ${WALLTIME_HOURS}h (${WALLTIME_PBS})"
 echo "  PBS script: $PBS_SCRIPT"
+if [ "$NO_MOVE_RECIPES" = "true" ]; then
+    echo -e "  Recipe movement: ${YELLOW}DISABLED (--no-move active)${NC}"
+else
+    echo "  Recipe movement: ENABLED (moved to processed/ after success)"
+fi
 echo ""
 
 # Calculate parallelism for this configuration
@@ -186,9 +202,9 @@ if [[ ! $REPLY =~ ^[Yy]$ ]]; then
     exit 0
 fi
 
-# Submit job with WORKERS_PER_NODE variable, node count, and walltime overrides
+# Submit job with WORKERS_PER_NODE and NO_MOVE_RECIPES variables, node count, and walltime overrides
 echo -e "${GREEN}Submitting job...${NC}"
-JOB_ID=$(qsub -v WORKERS_PER_NODE=${WORKERS_PER_NODE} -l select=${NUM_NODES}:system=crux -l walltime=${WALLTIME_PBS} "$PBS_SCRIPT")
+JOB_ID=$(qsub -v WORKERS_PER_NODE=${WORKERS_PER_NODE},NO_MOVE_RECIPES=${NO_MOVE_RECIPES} -l select=${NUM_NODES}:system=crux -l walltime=${WALLTIME_PBS} "$PBS_SCRIPT")
 
 if [ $? -eq 0 ]; then
     echo -e "${GREEN}✓ Job submitted successfully${NC}"

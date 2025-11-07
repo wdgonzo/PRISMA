@@ -86,7 +86,7 @@ def get_hpc_config() -> Dict[str, Any]:
         'distributed.scheduler.worker-heartbeat-timeout': '600s',  # Timeout before worker considered dead (10 min - was 120s)
 
         # Worker management (extended for massive scale)
-        'distributed.scheduler.worker-ttl': '30 minutes',  # Worker timeout (30 min - reduced for faster recovery)
+        'distributed.scheduler.worker-ttl': '5 minutes',  # Worker timeout
         'distributed.scheduler.allowed-failures': 10,      # Allow more transient failures at scale
         'distributed.worker.startup-timeout': '300s',      # Worker startup patience (5 min - reduced)
         'distributed.core.default-connect-timeout': '300s', # Default connection timeout (5 min)

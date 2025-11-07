@@ -309,16 +309,24 @@ echo ""
 # - Read recipe JSON files from Params/recipes/ or XRD/recipes/
 # - Process diffraction images with GSAS-II peak fitting
 # - Generate Zarr datasets in Processed/{DateStamp}/{Sample}/Zarr/
-# - Move processed recipes to recipes/processed/
+# - Move processed recipes to recipes/processed/ (unless --no-move is set)
 #
 # MPI configuration:
 # -n ${TOTAL_RANKS}        = Total processes across all nodes
 # -ppn ${WORKERS_PER_NODE} = Processes per node (Dask workers)
 # --cpu-bind verbose       = Show CPU binding for debugging
+
+# Build command with conditional --no-move flag
+CMD="python XRD/processing/batch_processor.py --home \"${HOME_DIR}\""
+if [ "${NO_MOVE_RECIPES}" = "true" ]; then
+    CMD="${CMD} --no-move"
+    echo "Recipe movement DISABLED (--no-move active)"
+fi
+
 mpiexec -n ${TOTAL_RANKS} \
     -ppn ${WORKERS_PER_NODE} \
     --cpu-bind verbose \
-    python XRD/processing/batch_processor.py --home "${HOME_DIR}"
+    ${CMD}
 
 EXIT_CODE=$?
 
