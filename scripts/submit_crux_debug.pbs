@@ -217,12 +217,16 @@ echo "Launching XRD batch processing with Dask-MPI..."
 echo "Expected configuration: 1 scheduler + 1 client + $((TOTAL_RANKS - 2)) workers"
 echo ""
 
-# Build command with conditional --no-move flag
-CMD="python XRD/processing/batch_processor.py --home \"${HOME_DIR}\""
+# Build --no-move flag if needed
 if [ "${NO_MOVE_RECIPES}" = "true" ]; then
-    CMD="${CMD} --no-move"
+    NO_MOVE_FLAG="--no-move"
     echo "Recipe movement DISABLED (--no-move active)"
+else
+    NO_MOVE_FLAG=""
 fi
+
+# Suppress verbose NumPy configuration output (multiplied across thousands of workers)
+export PYTHONWARNINGS="ignore"
 
 # Execute batch processing
 # The --home parameter specifies the base directory for data structure
@@ -235,7 +239,7 @@ fi
 mpiexec -n ${TOTAL_RANKS} \
     -ppn ${WORKERS_PER_NODE} \
     --cpu-bind verbose \
-    ${CMD}
+    python XRD/processing/batch_processor.py --home "${HOME_DIR}" ${NO_MOVE_FLAG}
 
 EXIT_CODE=$?
 
