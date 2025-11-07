@@ -46,14 +46,21 @@ def generate_data_from_recipe(recipe: dict, recipe_name: str = None, client=None
     Returns:
         XRDDataset object containing processed data
     """
+    print(f"DEBUG: generate_data_from_recipe() ENTERED")
+    print(f"DEBUG: client parameter = {client}")
+
     # Initialize Dask client for parallel processing - auto-detects HPC/local mode
     # Only create a new client if one wasn't provided (for standalone use)
     should_close_client = False
     if client is None:
+        print(f"DEBUG: client is None, creating new client")
         client = get_dask_client()
         should_close_client = True
+    else:
+        print(f"DEBUG: client provided, will reuse (should_close_client=False)")
 
     try:
+        print(f"DEBUG: Starting recipe processing...")
         # Extract detector parameters (REQUIRED)
         detector_params = recipe.get('detector_params', {})
         pixel_size = tuple(detector_params.get('pixel_size', [172.0, 172.0]))
@@ -112,7 +119,9 @@ def generate_data_from_recipe(recipe: dict, recipe_name: str = None, client=None
             json.dump(submitted_values, f, indent=2)
 
         # Process data (always force reprocess for new recipes)
+        print(f"DEBUG: About to call load_or_process_data()")
         dataset = load_or_process_data(params, recipe_name, ref_steps)
+        print(f"DEBUG: load_or_process_data() returned")
 
         print(f"Completed data generation")
         print(f"   Data shape: {dataset.data.shape}")

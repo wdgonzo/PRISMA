@@ -67,12 +67,17 @@ def process_all_recipes(home_dir: str = None, client=None, benchmark_file=None, 
 
     print(f"Found {len(recipe_files)} recipe files")
     print("=" * 60)
+    print(f"DEBUG: process_all_recipes() ENTERED")
+    print(f"DEBUG: client = {client}")
+    print(f"DEBUG: benchmark_file = {benchmark_file}")
 
     success_count = 0
     error_count = 0
     benchmark_metrics = []  # Collect benchmark data for each recipe
 
+    print(f"DEBUG: About to loop through {len(recipe_files)} recipes")
     for recipe_file in recipe_files:
+        print(f"DEBUG: Loop iteration - recipe_file = {recipe_file}")
         recipe_name = os.path.basename(recipe_file)
         print(f"\nProcessing: {recipe_name}")
 
@@ -86,8 +91,10 @@ def process_all_recipes(home_dir: str = None, client=None, benchmark_file=None, 
             print(f"   Peaks: {len(recipe_data.get('active_peaks', []))}")
 
             # Process the recipe (pass client to reuse across recipes)
+            print(f"DEBUG: About to call generate_data_from_recipe()")
             start_time = time.time()
             dataset = data_generator.generate_data_from_recipe(recipe_data, recipe_name, client)
+            print(f"DEBUG: generate_data_from_recipe() returned")
             processing_time = time.time() - start_time
 
             if dataset:
@@ -537,8 +544,12 @@ def main():
 
     try:
         # Start batch processing (client reused across all recipes)
+        print("DEBUG: About to call process_all_recipes()")
+        print(f"DEBUG: client = {client}")
+        print(f"DEBUG: benchmark_file = {benchmark_file}")
         start_time = time.time()
         benchmark_metrics = process_all_recipes(home_dir, client, benchmark_file, move_recipes)
+        print(f"DEBUG: process_all_recipes() returned, got {len(benchmark_metrics)} metrics")
         total_time = time.time() - start_time
 
         print(f"\nBatch processing completed in {total_time:.1f} seconds")
