@@ -352,80 +352,18 @@ def get_dask_client(
     return client
 
 
-def close_dask_client(client, timeout: int = 30):
+def close_dask_client(client):
     """
     Properly close Dask client and cleanup resources.
 
-    For Dask-MPI clusters, ensures coordinated shutdown across all ranks.
-    For LocalCluster, simply closes client and cluster.
-
     Args:
         client: Dask Client instance
-        timeout: Seconds to wait for graceful shutdown (default: 30)
     """
-    if client is None:
-        return
-
-    try:
-        # Check if we're in MPI mode
-        use_mpi = is_mpi_environment()
-
-        if use_mpi:
-            # ============ MPI CLUSTER SHUTDOWN ============
-            from mpi4py import MPI
-            comm = MPI.COMM_WORLD
-            rank = comm.Get_rank()
-
-            # Rank 0 prints shutdown messages (matches initialization pattern)
-            if rank == 0:
-                print(f"Initiating graceful Dask-MPI cluster shutdown...")
-
-                try:
-                    # Close client (scheduler and workers will shut down automatically)
-                    client.close(timeout=timeout)
-                    print("✓ Client closed successfully")
-
-                except Exception as e:
-                    print(f"⚠ Warning during client shutdown: {e}")
-                    # Force close if graceful shutdown fails
-                    try:
-                        client.close(timeout=1)
-                    except:
-                        pass
-            else:
-                # Other ranks: close silently to avoid log spam
-                try:
-                    client.close(timeout=timeout)
-                except:
-                    pass
-
-            # MPI barrier - ensure ALL ranks finish shutdown before any rank exits
-            # This prevents race conditions during cleanup
-            try:
-                comm.Barrier()
-            except Exception as e:
-                if rank == 0:
-                    print(f"⚠ Warning: MPI barrier failed during shutdown: {e}")
-
-        else:
-            # ============ LOCAL CLUSTER SHUTDOWN ============
-            print("Closing LocalCluster...")
-            client.close(timeout=timeout)
-
-            # Also close the cluster object if it's a LocalCluster
-            if hasattr(client, 'cluster') and client.cluster is not None:
-                client.cluster.close(timeout=timeout)
-
-            print("✓ Cluster closed successfully")
-
-    except Exception as e:
-        print(f"⚠ Error closing Dask client: {e}")
-        # Attempt force close
+    if client is not None:
         try:
-            if client is not None:
-                client.close(timeout=1)
-        except:
-            pass
+            client.close()
+        except Exception as e:
+            print(f"Warning: Error closing Dask client: {e}")
 
 
 # ================== USAGE EXAMPLES ==================
