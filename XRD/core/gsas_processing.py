@@ -2082,11 +2082,16 @@ def plot_intensity_patterns(powder_data_list: List[List[Dict]], params: GSASPara
     print(f"{'='*70}\n")
 
 
-def process_images(params: GSASParams, ref_steps) -> XRDDataset:
+def process_images(params: GSASParams, ref_steps, client=None) -> XRDDataset:
     """
     Process all images and return unified XRD dataset.
-    
+
     FIXED: Properly handles strain calculation and dataset finalization
+
+    Args:
+        params: GSAS processing parameters
+        ref_steps: Refinement steps for reference images
+        client: Optional Dask distributed client for MPI/cluster execution
     """
     
     # Process reference images using ImageLoader
@@ -2126,7 +2131,12 @@ def process_images(params: GSASParams, ref_steps) -> XRDDataset:
             ref_tasks.append(ref_task)
         
         print(f"Processing {len(ref_tasks)} reference images...")
-        ref_results = compute(*ref_tasks)
+        if client is not None:
+            # Use distributed client for MPI/cluster execution
+            ref_results = client.gather(client.compute(ref_tasks))
+        else:
+            # Use threaded scheduler for local execution
+            ref_results = compute(*ref_tasks, scheduler='threads')
 
         # Unpack reference results (now returns tuples of (peak_results, background_list))
         ref_peak_results = [tup[0] for tup in ref_results]
@@ -2264,7 +2274,12 @@ def process_images(params: GSASParams, ref_steps) -> XRDDataset:
         sample_tasks.append(task)
     
     print(f"Processing {len(sample_tasks)} sample images...")
-    sample_results = compute(*sample_tasks)
+    if client is not None:
+        # Use distributed client for MPI/cluster execution
+        sample_results = client.gather(client.compute(sample_tasks))
+    else:
+        # Use threaded scheduler for local execution
+        sample_results = compute(*sample_tasks, scheduler='threads')
 
     # Handle intensity plot export mode
     intplot_mode = params.get_intplot_mode()
@@ -2328,7 +2343,8 @@ def process_images(params: GSASParams, ref_steps) -> XRDDataset:
 def load_or_process_data(params: GSASParams,
                         ref_steps = [[{"area":False,"pos":False,"sig":False,"gam":False}, [False, True, False, False]]],
                         available_peaks_meta: list = None,
-                        active_peaks_meta: list = None) -> XRDDataset:
+                        active_peaks_meta: list = None,
+                        client=None) -> XRDDataset:
     """
     Load existing data or process new data if not found or if force reprocessing.
 
@@ -2337,6 +2353,7 @@ def load_or_process_data(params: GSASParams,
         ref_steps: Reference refinement steps
         available_peaks_meta: List of dicts with available peak metadata (deprecated, use params.available_peaks)
         active_peaks_meta: List of dicts with active peak metadata (deprecated, use params.active_peaks)
+        client: Optional Dask distributed client for MPI/cluster execution
 
     Returns:
         XRDDataset object
@@ -2364,7 +2381,7 @@ def load_or_process_data(params: GSASParams,
         print("Force reprocessing enabled. Processing images...")
     
     # Process new data
-    dataset = process_images(params, ref_steps)
+    dataset = process_images(params, ref_steps, client=client)
     
     # Save processed data
     print(f"Saving processed data to {save_path}...")
@@ -2476,7 +2493,7 @@ def main():
     )
 
     # Load or process data
-    dataset = load_or_process_data(parameters)
+    dataset = load_or_process_data(parameters, client=client)
 
     print("Processing complete!")
     print(f"Dataset shape: {dataset.data.shape}")

@@ -120,7 +120,7 @@ def generate_data_from_recipe(recipe: dict, recipe_name: str = None, client=None
 
         # Process data (always force reprocess for new recipes)
         print(f"DEBUG: About to call load_or_process_data()")
-        dataset = load_or_process_data(params, recipe_name, ref_steps)
+        dataset = load_or_process_data(params, recipe_name, ref_steps, client=client)
         print(f"DEBUG: load_or_process_data() returned")
 
         print(f"Completed data generation")
