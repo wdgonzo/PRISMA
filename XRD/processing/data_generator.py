@@ -34,19 +34,24 @@ from XRD.processing.recipes import create_gsas_params_from_recipe, load_recipe_f
 from XRD.hpc.cluster import get_dask_client, close_dask_client
 
 
-def generate_data_from_recipe(recipe: dict, recipe_name: str = None) -> XRDDataset:
+def generate_data_from_recipe(recipe: dict, recipe_name: str = None, client=None) -> XRDDataset:
     """
     Generate XRD data from recipe configuration.
 
     Args:
         recipe: Recipe dictionary from JSON file
         recipe_name: Optional recipe name for unique Zarr path generation
+        client: Optional Dask client (for batch processing). If None, creates local client.
 
     Returns:
         XRDDataset object containing processed data
     """
     # Initialize Dask client for parallel processing - auto-detects HPC/local mode
-    client = get_dask_client()
+    # Only create a new client if one wasn't provided (for standalone use)
+    should_close_client = False
+    if client is None:
+        client = get_dask_client()
+        should_close_client = True
 
     try:
         # Extract detector parameters (REQUIRED)
@@ -119,7 +124,9 @@ def generate_data_from_recipe(recipe: dict, recipe_name: str = None) -> XRDDatas
         print(f"Error in data generation: {str(e)}")
         raise
     finally:
-        close_dask_client(client)
+        # Only close client if we created it (not provided by caller)
+        if should_close_client:
+            close_dask_client(client)
 
 
 def main(recipe: dict, recipe_name: str = None):

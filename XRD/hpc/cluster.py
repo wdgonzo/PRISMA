@@ -77,15 +77,15 @@ def get_hpc_config() -> Dict[str, Any]:
 
         # Network optimization
         'distributed.comm.compression': 'auto',       # Auto-select best available compression (Crux requirement)
-        'distributed.comm.timeouts.connect': '600s',  # Connection timeout (10 min for 8K+ workers)
-        'distributed.comm.timeouts.tcp': '600s',      # TCP timeout (10 min)
-        'distributed.comm.timeouts.shutdown': '600s', # Shutdown timeout (10 min)
+        'distributed.comm.timeouts.connect': '300s',  # Connection timeout (5 min - reduced for faster failure detection)
+        'distributed.comm.timeouts.tcp': '300s',      # TCP timeout (5 min)
+        'distributed.comm.timeouts.shutdown': '120s', # Shutdown timeout (2 min - reduced for cleaner exits)
 
         # Worker management (extended for massive scale)
-        'distributed.scheduler.worker-ttl': '60 minutes',  # Worker timeout (1 hour for long jobs)
+        'distributed.scheduler.worker-ttl': '30 minutes',  # Worker timeout (30 min - reduced for faster recovery)
         'distributed.scheduler.allowed-failures': 10,      # Allow more transient failures at scale
-        'distributed.worker.startup-timeout': '600s',      # Worker startup patience (10 min)
-        'distributed.core.default-connect-timeout': '600s', # Default connection timeout
+        'distributed.worker.startup-timeout': '300s',      # Worker startup patience (5 min - reduced)
+        'distributed.core.default-connect-timeout': '300s', # Default connection timeout (5 min)
 
         # Scheduler optimization (reduce overhead for 8K-16K workers)
         'distributed.scheduler.validate': False,           # Skip validation at scale (performance)
