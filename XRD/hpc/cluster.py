@@ -77,15 +77,15 @@ def get_hpc_config() -> Dict[str, Any]:
 
         # Network optimization
         'distributed.comm.compression': 'auto',       # Auto-select best available compression (Crux requirement)
-        'distributed.comm.timeouts.connect': '300s',  # Connection timeout (5 min - reduced for faster failure detection)
-        'distributed.comm.timeouts.tcp': '300s',      # TCP timeout (5 min)
-        'distributed.comm.timeouts.shutdown': '120s', # Shutdown timeout (2 min - reduced for cleaner exits)
+        'distributed.comm.timeouts.connect': '600s',  # Connection timeout (10 min for 8K+ workers)
+        'distributed.comm.timeouts.tcp': '600s',      # TCP timeout (10 min)
+        'distributed.comm.timeouts.shutdown': '600s', # Shutdown timeout (10 min)
 
         # Worker management (extended for massive scale)
-        'distributed.scheduler.worker-ttl': '30 minutes',  # Worker timeout (30 min - reduced for faster recovery)
+        'distributed.scheduler.worker-ttl': '60 minutes',  # Worker timeout (1 hour for long jobs)
         'distributed.scheduler.allowed-failures': 10,      # Allow more transient failures at scale
-        'distributed.worker.startup-timeout': '300s',      # Worker startup patience (5 min - reduced)
-        'distributed.core.default-connect-timeout': '300s', # Default connection timeout (5 min)
+        'distributed.worker.startup-timeout': '600s',      # Worker startup patience (10 min)
+        'distributed.core.default-connect-timeout': '600s', # Default connection timeout
 
         # Scheduler optimization (reduce overhead for 8K-16K workers)
         'distributed.scheduler.validate': False,           # Skip validation at scale (performance)
@@ -231,30 +231,23 @@ def get_dask_client(
             rank = comm.Get_rank()
             size = comm.Get_size()
 
-            # CRITICAL: dask-mpi uses rank 0 for scheduler, rank 1 for client, rest for workers
-            # Only rank 1 (client) should print messages and wait for workers
-            # Rank 0 (scheduler) and ranks 2+ (workers) should initialize silently
-
-            if verbose and rank == 1:
+            if verbose and rank == 0:
                 print(f"MPI Size: {size} processes")
-                print(f"Rank 0: Scheduler")
-                print(f"Rank 1: Client (this process)")
-                print(f"Ranks 2-{size-1}: Workers ({size-2} workers)")
+                print(f"Detected MPI implementation via environment")
 
             # Detect optimal network interface for this system
             network_interface = detect_network_interface()
 
-            if verbose and rank == 1:
+            if verbose and rank == 0:
                 if network_interface:
                     print(f"Network interface: {network_interface}")
                 else:
                     print(f"Network interface: auto-detect")
 
             # Initialize Dask-MPI
-            # Rank 0 → Scheduler
-            # Rank 1 → Client
-            # Rank 2+ → Workers
+            # One process becomes scheduler, one becomes client, rest become workers
             # Expected workers: size - 2
+            # Dashboard is bound to 0.0.0.0:8787 (accessible via SSH tunnel)
             initialize(
                 nthreads=threads_per_worker or 1,  # Threads per worker
                 local_directory=local_directory,   # Temporary storage
@@ -263,12 +256,11 @@ def get_dask_client(
                 dashboard_address=':8787',         # Bind dashboard to port 8787 on all interfaces
             )
 
-            # Get client (only rank 1 has the client after initialize())
+            # Get client (only rank 0 has access)
             client = Client()
 
             # Wait for all workers to be ready (CRITICAL for massive scale)
-            # Only rank 1 (client) should do this check
-            if rank == 1:
+            if rank == 0:
                 expected_workers = size - 2  # Total ranks minus scheduler and client
 
                 if verbose:
@@ -288,7 +280,7 @@ def get_dask_client(
                     print(f"⚠ WARNING: Only {actual_workers}/{expected_workers} workers ready after 10 minutes")
                     print(f"Proceeding with available workers - some may still be initializing")
 
-            if verbose and rank == 1:
+            if verbose and rank == 0:
                 import socket
                 hostname = socket.gethostname()
 
@@ -360,84 +352,18 @@ def get_dask_client(
     return client
 
 
-def close_dask_client(client, timeout: int = 30):
+def close_dask_client(client):
     """
     Properly close Dask client and cleanup resources.
 
-    For Dask-MPI clusters:
-    - Rank 1 (client) closes the client, which triggers scheduler/worker shutdown
-    - All ranks synchronize before exiting to prevent race conditions
-
-    For LocalCluster:
-    - Simply closes the client and cluster
-
     Args:
         client: Dask Client instance
-        timeout: Seconds to wait for graceful shutdown (default: 30)
     """
-    if client is None:
-        return
-
-    try:
-        # Check if we're in MPI mode
-        use_mpi = is_mpi_environment()
-
-        if use_mpi:
-            # ============ MPI CLUSTER SHUTDOWN ============
-            from mpi4py import MPI
-            comm = MPI.COMM_WORLD
-            rank = comm.Get_rank()
-
-            # Only rank 1 (client) should print shutdown messages
-            if rank == 1:
-                print(f"Initiating graceful Dask-MPI cluster shutdown...")
-
-                try:
-                    # Close client (scheduler and workers will shut down automatically)
-                    client.close(timeout=timeout)
-                    print("✓ Client closed successfully")
-
-                except Exception as e:
-                    print(f"⚠ Warning during client shutdown: {e}")
-                    # Force close if graceful shutdown fails
-                    try:
-                        client.close(timeout=1)
-                    except:
-                        pass
-            else:
-                # Rank 0 (scheduler) and ranks 2+ (workers) close silently
-                try:
-                    client.close(timeout=timeout)
-                except:
-                    pass
-
-            # MPI barrier - ensure ALL ranks finish shutdown before any rank exits
-            # This prevents race conditions during cleanup
-            try:
-                comm.Barrier()
-            except Exception as e:
-                if rank == 1:
-                    print(f"⚠ Warning: MPI barrier failed during shutdown: {e}")
-
-        else:
-            # ============ LOCAL CLUSTER SHUTDOWN ============
-            print("Closing LocalCluster...")
-            client.close(timeout=timeout)
-
-            # Also close the cluster object if it's a LocalCluster
-            if hasattr(client, 'cluster') and client.cluster is not None:
-                client.cluster.close(timeout=timeout)
-
-            print("✓ Cluster closed successfully")
-
-    except Exception as e:
-        print(f"⚠ Error closing Dask client: {e}")
-        # Attempt force close
+    if client is not None:
         try:
-            if client is not None:
-                client.close(timeout=1)
-        except:
-            pass
+            client.close()
+        except Exception as e:
+            print(f"Warning: Error closing Dask client: {e}")
 
 
 # ================== USAGE EXAMPLES ==================
@@ -445,52 +371,29 @@ def close_dask_client(client, timeout: int = 30):
 if __name__ == "__main__":
     """
     Test cluster initialization and display information.
-
-    Usage:
-        # Local testing
-        python -m XRD.hpc.cluster
-
-        # MPI testing
-        mpiexec -n 4 python -m XRD.hpc.cluster
     """
-    # Check if we're in MPI mode
-    use_mpi = is_mpi_environment()
+    print("Testing HPC Cluster Initialization")
+    print("=" * 60)
 
-    if use_mpi:
-        from mpi4py import MPI
-        rank = MPI.COMM_WORLD.Get_rank()
-
-        # Only rank 1 (client) should print test messages
-        if rank == 1:
-            print("Testing HPC Cluster Initialization (MPI Mode)")
-            print("=" * 60)
-            print(f"PBS Job ID: {os.environ.get('PBS_JOBID', 'Not in PBS job')}")
-            print()
-    else:
-        print("Testing HPC Cluster Initialization (Local Mode)")
-        print("=" * 60)
-        print()
+    # Test environment detection
+    print(f"MPI Environment Detected: {is_mpi_environment()}")
+    print(f"PBS Job ID: {os.environ.get('PBS_JOBID', 'Not in PBS job')}")
+    print()
 
     # Initialize client
     client = get_dask_client(verbose=True)
 
-    # Only print from client rank (rank 1 in MPI, main process in local)
-    should_print = (not use_mpi) or (use_mpi and MPI.COMM_WORLD.Get_rank() == 1)
+    # Display worker information
+    print("\nWorker Information:")
+    print(client.scheduler_info())
 
-    if should_print:
-        # Display worker information
-        print("\nWorker Information:")
-        print(client.scheduler_info())
-
-        # Test basic computation
-        import dask.array as da
-        print("\nTesting computation:")
-        x = da.random.random((10000, 10000), chunks=(1000, 1000))
-        result = x.mean().compute()
-        print(f"Test computation result: {result:.6f}")
+    # Test basic computation
+    import dask.array as da
+    print("\nTesting computation:")
+    x = da.random.random((10000, 10000), chunks=(1000, 1000))
+    result = x.mean().compute()
+    print(f"Test computation result: {result:.6f}")
 
     # Cleanup
     close_dask_client(client)
-
-    if should_print:
-        print("\nCluster closed successfully")
+    print("\nCluster closed successfully")
