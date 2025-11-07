@@ -31,7 +31,7 @@ from XRD.processing import data_generator
 from XRD.processing.recipes import load_recipe_from_file
 
 
-def process_all_recipes(home_dir: str = None, client=None, benchmark_file=None):
+def process_all_recipes(home_dir: str = None, client=None, benchmark_file=None, move_recipes: bool = True):
     """
     Process all recipe files in the recipes directory.
 
@@ -39,6 +39,7 @@ def process_all_recipes(home_dir: str = None, client=None, benchmark_file=None):
         home_dir: Optional home directory. If None, uses current directory.
         client: Optional Dask client to reuse across recipes (for HPC efficiency)
         benchmark_file: Optional path to benchmark CSV file for incremental writing
+        move_recipes: If True, move recipes to processed/ after success (default: True)
 
     Returns:
         List of dictionaries containing benchmark metrics for each recipe
@@ -122,10 +123,13 @@ def process_all_recipes(home_dir: str = None, client=None, benchmark_file=None):
                     print(f"   WARNING: Zarr file not found at expected location!")
                     print(f"      Expected: {save_path}")
 
-                # Move processed file to processed directory
-                processed_file = os.path.join(processed_dir, recipe_name)
-                shutil.move(recipe_file, processed_file)
-                print(f"   Moved recipe to processed/")
+                # Move processed file to processed directory (if enabled)
+                if move_recipes:
+                    processed_file = os.path.join(processed_dir, recipe_name)
+                    shutil.move(recipe_file, processed_file)
+                    print(f"   Moved recipe to processed/")
+                else:
+                    print(f"   Recipe kept in place (--no-move active)")
 
                 success_count += 1
             else:
@@ -463,9 +467,16 @@ def main():
     Main function to handle command line arguments and execute batch processing.
     """
     home_dir = os.getcwd()  # Default to current directory
+    move_recipes = True  # Default: move recipes to processed/ after success
 
     # Parse command line arguments
     if len(sys.argv) > 1:
+        # Check for --no-move flag anywhere in arguments
+        if "--no-move" in sys.argv:
+            move_recipes = False
+            # Remove --no-move from argv for other parsing
+            sys.argv = [arg for arg in sys.argv if arg != "--no-move"]
+
         if sys.argv[1] == "--create-examples":
             create_example_recipes()
             return
@@ -516,10 +527,18 @@ def main():
     print(f"Benchmark file: {benchmark_file}")
     print()
 
+    # Warning if recipes will not be moved
+    if not move_recipes:
+        print("WARNING: --no-move flag is active")
+        print("   Recipes will NOT be moved to processed/ after completion")
+        print("   This may cause reprocessing if the batch is run again")
+        print("   Consider manually removing or archiving processed recipes")
+        print()
+
     try:
         # Start batch processing (client reused across all recipes)
         start_time = time.time()
-        benchmark_metrics = process_all_recipes(home_dir, client, benchmark_file)
+        benchmark_metrics = process_all_recipes(home_dir, client, benchmark_file, move_recipes)
         total_time = time.time() - start_time
 
         print(f"\nBatch processing completed in {total_time:.1f} seconds")

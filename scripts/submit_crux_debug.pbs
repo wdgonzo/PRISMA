@@ -211,11 +211,18 @@ echo ""
 # - Read recipe JSON files from Params/recipes/ or XRD/recipes/
 # - Process diffraction images with GSAS-II peak fitting
 # - Generate Zarr datasets in Processed/{DateStamp}/{Sample}/Zarr/
-# - Move processed recipes to recipes/processed/
+# - Move processed recipes to recipes/processed/ (unless --no-move is set)
 
 echo "Launching XRD batch processing with Dask-MPI..."
 echo "Expected configuration: 1 scheduler + 1 client + $((TOTAL_RANKS - 2)) workers"
 echo ""
+
+# Build command with conditional --no-move flag
+CMD="python XRD/processing/batch_processor.py --home \"${HOME_DIR}\""
+if [ "${NO_MOVE_RECIPES}" = "true" ]; then
+    CMD="${CMD} --no-move"
+    echo "Recipe movement DISABLED (--no-move active)"
+fi
 
 # Execute batch processing
 # The --home parameter specifies the base directory for data structure
@@ -228,7 +235,7 @@ echo ""
 mpiexec -n ${TOTAL_RANKS} \
     -ppn ${WORKERS_PER_NODE} \
     --cpu-bind verbose \
-    python XRD/processing/batch_processor.py --home "${HOME_DIR}"
+    ${CMD}
 
 EXIT_CODE=$?
 
