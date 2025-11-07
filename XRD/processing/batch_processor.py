@@ -420,9 +420,12 @@ def finalize_benchmark_file(benchmark_file, benchmark_metrics, total_time):
             f.write(f"# Average time per frame: {total_successful_time / total_frames:.2f} seconds\n")
 
 
-def get_cluster_info():
+def get_cluster_info(client=None):
     """
     Get information about the Dask cluster (workers, nodes).
+
+    Args:
+        client: Optional Dask client. If None, tries to get existing client.
 
     Returns:
         Tuple of (num_workers, num_nodes, workers_per_node)
@@ -434,10 +437,16 @@ def get_cluster_info():
     workers_per_node = 1
 
     try:
-        # Try to get Dask client if it exists
-        from distributed import get_client
+        # Use provided client or try to get existing one
+        if client is None:
+            from distributed import get_client
+            try:
+                client = get_client()
+            except ValueError:
+                # No client available - not using Dask
+                return num_workers, num_nodes, workers_per_node
+
         try:
-            client = get_client()
             scheduler_info = client.scheduler_info()
             num_workers = len(scheduler_info['workers'])
 
@@ -522,7 +531,9 @@ def main():
 
     # Create Dask client ONCE before processing (critical for HPC/MPI mode)
     print("Initializing Dask cluster...")
+    print("DEBUG [main]: About to call get_dask_client()")
     client = get_dask_client()
+    print("DEBUG [main]: get_dask_client() RETURNED")
 
     print(f"DEBUG: Client created: {client}")
     print(f"DEBUG: Client status: {client.status}")
@@ -545,7 +556,7 @@ def main():
         print(f"DEBUG: Error getting worker count after sleep: {e}")
 
     # Gather worker/core information before processing
-    num_workers, num_nodes, workers_per_node = get_cluster_info()
+    num_workers, num_nodes, workers_per_node = get_cluster_info(client)
     print(f"Cluster initialized: {num_workers} workers, {num_nodes} nodes")
     print()
 

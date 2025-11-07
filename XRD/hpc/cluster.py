@@ -349,6 +349,9 @@ def get_dask_client(
         print(f"Cluster dashboard: {client.dashboard_link}")
         print("=" * 60)
 
+    print(f"DEBUG [cluster.py]: About to return client from get_dask_client()")
+    print(f"DEBUG [cluster.py]: Client object = {client}")
+    print(f"DEBUG [cluster.py]: Client status = {client.status}")
     return client
 
 
