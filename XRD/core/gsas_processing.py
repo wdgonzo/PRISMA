@@ -202,7 +202,9 @@ def setup_hpc_environment():
             'distributed.worker.memory.pause': 0.9,     # Pause at 90%
             'distributed.worker.memory.terminate': 0.95,  # Terminate at 95%
             'distributed.comm.compression': 'auto',     # Auto-select best available
-            'distributed.scheduler.worker-ttl': '5 minutes',  # Worker timeout
+            'distributed.scheduler.worker-ttl': '30 minutes',  # Worker timeout (sync with cluster.py)
+            'distributed.scheduler.worker-heartbeat-interval': '30s',  # How often workers ping scheduler (reduced from default 1s)
+            'distributed.scheduler.worker-heartbeat-timeout': '600s',  # 10 min ping RPC timeout (CRITICAL - was defaulting to 120s)
         })
         print("   Dask: Configured for HPC memory management")
     except ImportError:
