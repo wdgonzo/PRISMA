@@ -164,6 +164,8 @@ export DASK_DISTRIBUTED__SCHEDULER__WORKER_TTL=3600s               # 1 hour work
 export DASK_DISTRIBUTED__SCHEDULER__ALLOWED_FAILURES=10            # Allow more transient failures
 export DASK_DISTRIBUTED__WORKER__STARTUP_TIMEOUT=600s              # 10 min worker startup patience
 export DASK_DISTRIBUTED__CORE__DEFAULT_CONNECT_TIMEOUT=600s        # 10 min default timeout
+export DASK_DISTRIBUTED__SCHEDULER__WORKER_HEARTBEAT_INTERVAL=30s  # How often workers ping scheduler (reduced from default 1s)
+export DASK_DISTRIBUTED__SCHEDULER__WORKER_HEARTBEAT_TIMEOUT=600s  # 10 min ping RPC timeout (increased from default 120s)
 export DASK_DISTRIBUTED__WORKER__MEMORY__TARGET=0.70
 export DASK_DISTRIBUTED__WORKER__MEMORY__SPILL=0.80
 export DASK_DISTRIBUTED__WORKER__MEMORY__PAUSE=0.90
@@ -307,29 +309,16 @@ echo ""
 # - Read recipe JSON files from Params/recipes/ or XRD/recipes/
 # - Process diffraction images with GSAS-II peak fitting
 # - Generate Zarr datasets in Processed/{DateStamp}/{Sample}/Zarr/
-# - Move processed recipes to recipes/processed/ (unless --no-move is set)
+# - Move processed recipes to recipes/processed/
 #
 # MPI configuration:
 # -n ${TOTAL_RANKS}        = Total processes across all nodes
 # -ppn ${WORKERS_PER_NODE} = Processes per node (Dask workers)
 # --cpu-bind verbose       = Show CPU binding for debugging
-
-# Build --no-move flag if needed
-if [ "${NO_MOVE_RECIPES}" = "true" ]; then
-    NO_MOVE_FLAG="--no-move"
-    echo "Recipe movement DISABLED (--no-move active)"
-else
-    NO_MOVE_FLAG=""
-fi
-
-# Suppress verbose NumPy configuration output (multiplied across thousands of workers)
-export PYTHONWARNINGS="ignore"
-
-# Execute with proper quoting
 mpiexec -n ${TOTAL_RANKS} \
     -ppn ${WORKERS_PER_NODE} \
     --cpu-bind verbose \
-    python XRD/processing/batch_processor.py --home "${HOME_DIR}" ${NO_MOVE_FLAG}
+    python XRD/processing/batch_processor.py --home "${HOME_DIR}"
 
 EXIT_CODE=$?
 
