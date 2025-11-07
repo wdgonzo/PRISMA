@@ -524,6 +524,26 @@ def main():
     print("Initializing Dask cluster...")
     client = get_dask_client()
 
+    print(f"DEBUG: Client created: {client}")
+    print(f"DEBUG: Client status: {client.status}")
+    import time
+    try:
+        info = client.scheduler_info()
+        worker_count = len(info['workers'])
+        print(f"DEBUG: Number of workers RIGHT NOW: {worker_count}")
+    except Exception as e:
+        print(f"DEBUG: Error getting worker count: {e}")
+
+    print("DEBUG: Sleeping 5 seconds to see if workers stay connected...")
+    time.sleep(5)
+
+    try:
+        info = client.scheduler_info()
+        worker_count = len(info['workers'])
+        print(f"DEBUG: Number of workers after 5 sec: {worker_count}")
+    except Exception as e:
+        print(f"DEBUG: Error getting worker count after sleep: {e}")
+
     # Gather worker/core information before processing
     num_workers, num_nodes, workers_per_node = get_cluster_info()
     print(f"Cluster initialized: {num_workers} workers, {num_nodes} nodes")
