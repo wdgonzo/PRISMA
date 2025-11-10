@@ -6,7 +6,7 @@
 # parallelism.
 #
 # Usage:
-#   ./scripts/submit_crux.sh <workers_per_node> [mode] [num_nodes] [walltime_hours] [--no-move]
+#   ./scripts/submit_crux.sh <workers_per_node> [mode] [num_nodes] [walltime_hours] [--no-move] [--recipe <path>]
 #
 # Arguments:
 #   workers_per_node: Number of Dask workers per node (1-128)
@@ -14,6 +14,7 @@
 #   num_nodes: Number of nodes (PRODUCTION ONLY, 1-184, default: 32)
 #   walltime_hours: Walltime in hours (PRODUCTION ONLY, 1-24, default: 8)
 #   --no-move: Optional flag to keep recipes in place after processing (not moved to processed/)
+#   --recipe <path>: Optional path to single recipe file (if omitted, processes all recipes)
 #
 # Examples:
 #   ./scripts/submit_crux.sh 64                        # 64 workers/node, debug (4 nodes, 2hr fixed)
@@ -23,6 +24,8 @@
 #   ./scripts/submit_crux.sh 64 production 64 12       # 64 workers/node, production, 64 nodes, 12hr
 #   ./scripts/submit_crux.sh 128 production 128 24     # 128 workers/node, production, 128 nodes, 24hr
 #   ./scripts/submit_crux.sh 64 production 32 8 --no-move  # Keep recipes in place after processing
+#   ./scripts/submit_crux.sh 16 production 16 24 --recipe my/recipe/path.json  # Single recipe
+#   ./scripts/submit_crux.sh 16 production 16 24 --no-move --recipe test.json  # Single recipe, no move
 #
 # Parallelism Guide:
 #   Conservative:  32 workers/node  (~8GB RAM per worker)
@@ -53,12 +56,18 @@ MODE=${2:-debug}
 NUM_NODES=${3}  # Optional, only for production
 WALLTIME_HOURS=${4}  # Optional, only for production
 NO_MOVE_RECIPES="false"  # Default: move recipes after processing
+RECIPE_FILE=""  # Default: process all recipes
 
-# Check for --no-move flag in any position
+# Check for --no-move and --recipe flags in any position
+NEXT_IS_RECIPE=false
 for arg in "$@"; do
     if [ "$arg" = "--no-move" ]; then
         NO_MOVE_RECIPES="true"
-        break
+    elif [ "$arg" = "--recipe" ]; then
+        NEXT_IS_RECIPE=true
+    elif [ "$NEXT_IS_RECIPE" = true ]; then
+        RECIPE_FILE="$arg"
+        NEXT_IS_RECIPE=false
     fi
 done
 
@@ -153,6 +162,11 @@ echo "  Number of nodes: $NUM_NODES"
 echo "  Workers per node: $WORKERS_PER_NODE"
 echo "  Walltime: ${WALLTIME_HOURS}h (${WALLTIME_PBS})"
 echo "  PBS script: $PBS_SCRIPT"
+if [ -n "$RECIPE_FILE" ]; then
+    echo -e "  Recipe: ${BLUE}${RECIPE_FILE}${NC} (SINGLE RECIPE MODE)"
+else
+    echo "  Recipe: ALL recipes in recipes/ directory"
+fi
 if [ "$NO_MOVE_RECIPES" = "true" ]; then
     echo -e "  Recipe movement: ${YELLOW}DISABLED (--no-move active)${NC}"
 else
@@ -202,9 +216,9 @@ if [[ ! $REPLY =~ ^[Yy]$ ]]; then
     exit 0
 fi
 
-# Submit job with WORKERS_PER_NODE and NO_MOVE_RECIPES variables, node count, and walltime overrides
+# Submit job with WORKERS_PER_NODE, NO_MOVE_RECIPES, and RECIPE_FILE variables, node count, and walltime overrides
 echo -e "${GREEN}Submitting job...${NC}"
-JOB_ID=$(qsub -v WORKERS_PER_NODE=${WORKERS_PER_NODE},NO_MOVE_RECIPES=${NO_MOVE_RECIPES} -l select=${NUM_NODES}:system=crux -l walltime=${WALLTIME_PBS} "$PBS_SCRIPT")
+JOB_ID=$(qsub -v WORKERS_PER_NODE=${WORKERS_PER_NODE},NO_MOVE_RECIPES=${NO_MOVE_RECIPES},RECIPE_FILE="${RECIPE_FILE}" -l select=${NUM_NODES}:system=crux -l walltime=${WALLTIME_PBS} "$PBS_SCRIPT")
 
 if [ $? -eq 0 ]; then
     echo -e "${GREEN}✓ Job submitted successfully${NC}"

@@ -89,6 +89,12 @@ HOME_DIR="${PROJECT_BASE}"
 #   128 = maximum (~2GB/worker)
 WORKERS_PER_NODE=${WORKERS_PER_NODE:-64}  # Default: 64 workers per node
 
+# Recipe processing mode (optional)
+# Set RECIPE_FILE to process a single recipe, or leave empty to process all
+# Submit with custom recipe: qsub -v RECIPE_FILE=sample.json scripts/submit_crux_production.pbs
+# Or use wrapper: ./scripts/submit_crux.sh 64 production 32 8 --recipe sample.json
+RECIPE_FILE=${RECIPE_FILE:-}  # Default: empty (process all recipes)
+
 # Performance monitoring (set to 1 to enable detailed timing)
 ENABLE_PROFILING=0
 
@@ -322,6 +328,13 @@ else
     NO_MOVE_FLAG=""
 fi
 
+# Build recipe argument if specified
+if [ -n "${RECIPE_FILE}" ]; then
+    echo "Processing SINGLE recipe: ${RECIPE_FILE}"
+else
+    echo "Processing ALL recipes in recipes/ directory"
+fi
+
 # Suppress verbose NumPy configuration output (multiplied across thousands of workers)
 export PYTHONWARNINGS="ignore"
 
@@ -329,7 +342,7 @@ export PYTHONWARNINGS="ignore"
 mpiexec -n ${TOTAL_RANKS} \
     -ppn ${WORKERS_PER_NODE} \
     --cpu-bind verbose \
-    python XRD/processing/batch_processor.py --home "${HOME_DIR}" ${NO_MOVE_FLAG}
+    python XRD/processing/batch_processor.py --home "${HOME_DIR}" ${NO_MOVE_FLAG} ${RECIPE_FILE}
 
 EXIT_CODE=$?
 
