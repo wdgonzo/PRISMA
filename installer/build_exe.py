@@ -111,10 +111,16 @@ def build_executable(spec_file, root_dir):
     print("\nThis may take several minutes...\n")
 
     try:
+        # Set environment variable to signal PyInstaller build
+        # This allows GSAS-II import to be skipped during build analysis
+        build_env = os.environ.copy()
+        build_env['PYINSTALLER_BUILD'] = '1'
+
         # Run PyInstaller
         result = subprocess.run(
             [sys.executable, '-m', 'PyInstaller', str(spec_file), '--clean'],
             cwd=str(root_dir),
+            env=build_env,
             capture_output=True,
             text=True
         )

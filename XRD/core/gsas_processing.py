@@ -26,10 +26,73 @@ import warnings
 warnings.filterwarnings('ignore')
 
 # Import G2script - try shortcut first (local GUI setup), fallback to direct import (HPC)
+# During PyInstaller build, GSAS-II may not be available - this is OK
+# At runtime, we'll check again and provide helpful error
+G2script = None
+_gsas_import_error = None
+
 try:
     import G2script  # GUI-installed shortcut (local setups)
 except ImportError:
-    from GSASII import GSASIIscriptable as G2script  # Direct import (headless/HPC)
+    try:
+        from GSASII import GSASIIscriptable as G2script  # Direct import (headless/HPC)
+    except ImportError as e:
+        # Store the error for later - don't fail during PyInstaller build
+        _gsas_import_error = e
+
+        # Check if we're in PyInstaller build environment
+        import sys
+        import os
+
+        # Multiple ways to detect PyInstaller build environment:
+        # 1. PYINSTALLER_BUILD env var (set by build_exe.py)
+        # 2. sys.frozen (running as bundled exe)
+        # 3. PyInstaller in sys.modules (build parent process)
+        # 4. _MEIPASS attribute (runtime temp extraction)
+        is_pyinstaller_build = (
+            os.environ.get('PYINSTALLER_BUILD') == '1' or
+            getattr(sys, 'frozen', False) or
+            'PyInstaller' in sys.modules or
+            hasattr(sys, '_MEIPASS')
+        )
+
+        if not is_pyinstaller_build:
+            # Running in development - GSAS-II should be available
+            print("\n" + "="*70)
+            print("ERROR: GSAS-II not found!")
+            print("="*70)
+            print("\nPRISMA requires GSAS-II to be installed and configured.")
+            print("\nPossible solutions:")
+            print("  1. Run activate_local.bat before launching PRISMA")
+            print("  2. Configure GSAS-II path: python XRD/initialize_gsas_headless.py <path>")
+            print("  3. Manually set GSAS2DIR environment variable")
+            print("\nFor GSAS-II installation instructions, see:")
+            print("  https://gsas-ii.readthedocs.io/")
+            print("="*70 + "\n")
+            sys.exit(1)
+        # Otherwise, continue - we're in PyInstaller build or frozen exe will handle it
+
+def _check_gsas_available():
+    """
+    Check if GSAS-II is available at runtime.
+
+    This function is called when GSAS-II functions are actually needed (not during import).
+    Provides helpful error message if GSAS-II isn't configured.
+    """
+    if G2script is None:
+        import sys
+        print("\n" + "="*70)
+        print("ERROR: GSAS-II not found!")
+        print("="*70)
+        print("\nPRISMA requires GSAS-II to be installed and configured.")
+        print("\nPossible solutions:")
+        print("  1. Launch PRISMA GUI and configure GSAS-II path in Settings")
+        print("  2. Reinstall PRISMA and provide GSAS-II path during installation")
+        print("  3. Manually set GSAS-II path in ~/.prisma/config.json")
+        print("\nFor GSAS-II installation instructions, see:")
+        print("  https://gsas-ii.readthedocs.io/")
+        print("="*70 + "\n")
+        sys.exit(1)
 
 from XRD.core.image_loader import ImageLoader, ImageFrameInfo, validate_frame_ordering
 import matplotlib
@@ -1288,6 +1351,9 @@ def _process_single_frame(file: str, params: GSASParams, frame_index: int,
 
     NEW: Supports multi-frame files via frame_info parameter
     """
+
+    # Check that GSAS-II is available (critical for runtime execution)
+    _check_gsas_available()
 
     # Silence GSAS-II verbose output for HPC (prevents terminal I/O bottleneck)
     # With 250-510 parallel workers, GSAS output creates massive stdout lock contention

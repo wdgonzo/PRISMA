@@ -26,6 +26,54 @@ import os
 import argparse
 
 
+def initialize_gsas_path():
+    """
+    Initialize GSAS-II path from config before any XRD imports.
+
+    This is critical for PyInstaller-bundled executables where GSAS-II
+    is installed separately and must be added to sys.path at runtime.
+
+    Returns:
+        True if GSAS path configured successfully, False otherwise
+    """
+    try:
+        # Import config manager (no XRD dependencies)
+        from pathlib import Path
+        import json
+
+        # Load config file
+        config_path = Path.home() / '.prisma' / 'config.json'
+
+        if not config_path.exists():
+            # Config doesn't exist yet (first launch) - will be configured by GUI
+            return False
+
+        # Read GSAS path from config
+        with open(config_path, 'r') as f:
+            config = json.load(f)
+
+        gsas_path = config.get('gsas_path')
+
+        # Validate and add to sys.path
+        if gsas_path and os.path.exists(gsas_path):
+            # Add to beginning of sys.path for imports
+            if gsas_path not in sys.path:
+                sys.path.insert(0, gsas_path)
+
+            # Set environment variable (GSAS-II internal use)
+            os.environ['GSAS2DIR'] = gsas_path
+
+            return True
+        else:
+            # GSAS path not configured or invalid
+            return False
+
+    except Exception as e:
+        # Don't crash if config loading fails - will be handled by GUI
+        print(f"Warning: Could not initialize GSAS-II path: {e}")
+        return False
+
+
 def is_headless():
     """
     Check if running in headless environment (no display).
@@ -85,6 +133,11 @@ def verify_installation():
 
 def main():
     """Main entry point with command-line argument parsing."""
+    # CRITICAL: Initialize GSAS-II path BEFORE any XRD imports
+    # This loads the GSAS path from config and adds it to sys.path
+    # Required for PyInstaller-bundled executables
+    initialize_gsas_path()
+
     parser = argparse.ArgumentParser(
         description="PRISMA - Parallel Refinement and Integration System for Multi-Azimuthal Analysis",
         formatter_class=argparse.RawDescriptionHelpFormatter,
