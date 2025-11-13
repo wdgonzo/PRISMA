@@ -35,8 +35,6 @@ DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 AllowNoIcons=yes
 LicenseFile=..\LICENSE
-; Uncomment the following line when LICENSE file is created
-; If LICENSE doesn't exist yet, comment out the line above
 
 ; Output configuration
 OutputDir=Output
@@ -51,8 +49,9 @@ ArchitecturesAllowed=x64
 ArchitecturesInstallIn64BitMode=x64
 MinVersion=10.0.17763
 ; Windows 10 version 1809 or later
-PrivilegesRequired=admin
-; Admin required for Program Files installation
+PrivilegesRequired=lowest
+PrivilegesRequiredOverridesAllowed=dialog
+; Allow user to choose: admin install (Program Files) or user install (AppData)
 
 ; Uninstaller
 UninstallDisplayIcon={app}\{#MyAppExeName}
@@ -62,8 +61,8 @@ UninstallDisplayName={#MyAppName}
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Tasks]
-Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: checked
-Name: "quicklaunchicon"; Description: "{cm:CreateQuickLaunchIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked; OnlyBelowVersion: 6.1; Check: not IsAdminInstallMode
+Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"
+Name: "quicklaunchicon"; Description: "{cm:CreateQuickLaunchIcon}"; GroupDescription: "{cm:AdditionalIcons}"; OnlyBelowVersion: 6.1; Check: not IsAdminInstallMode
 
 [Files]
 ; Main executable

@@ -65,12 +65,31 @@ hidden_imports = [
     'distributed.protocol.serialize',
     'distributed.protocol.pickle',
 
-    # Zarr and compression
+    # Zarr and compression (v3 structure)
     'zarr',
+    'zarr.core',
+    'zarr.core.buffer',
+    'zarr.core.common',
     'zarr.storage',
+    'zarr.storage.common',
+    'zarr.storage.local',
     'zarr.codecs',
+    'zarr.codecs.blosc',
+    'zarr.codecs.bytes',
+    'zarr.codecs.crc32c',
+    'zarr.codecs.gzip',
+    'zarr.codecs.pipeline',
+    'zarr.codecs.registry',
+    'zarr.codecs.sharding',
+    'zarr.codecs.transpose',
+    'zarr.codecs.zstd',
+    'zarr.abc',
+    'zarr.abc.codec',
+    'zarr.abc.store',
     'numcodecs',
     'numcodecs.blosc',
+    'numcodecs.compat',
+    'numcodecs.zstd',
 
     # Scientific libraries
     'numpy',
