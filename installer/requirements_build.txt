@@ -1,0 +1,17 @@
+# PRISMA Build Requirements
+# ==========================
+# Dependencies needed to build PRISMA executables and installer
+
+# PyInstaller - For building PRISMA.exe
+pyinstaller>=5.0
+
+# Pillow - For icon generation
+Pillow>=9.0
+
+# Note: Inno Setup must be installed separately
+# Download from: https://jrsoftware.org/isdl.php
+# Version 6.2 or later recommended
+# Install to default location: C:\Program Files (x86)\Inno Setup 6\
+
+# All regular PRISMA dependencies should already be installed
+# (from requirements.txt in parent directory)

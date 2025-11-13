@@ -6,10 +6,10 @@ science analysis.
 
 Author(s): William Gonzalez, Adrian Guzman, Luke Davenport
 Date: October 2025
-Version: Beta 0.1
+Version: Beta 0.3
 """
 
-__version__ = "0.1.0-beta"
+__version__ = "0.3.0-beta"
 __author__ = "William Gonzalez, Adrian Guzman, Luke Davenport"
 
 # Core exports

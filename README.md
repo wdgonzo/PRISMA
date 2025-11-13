@@ -1,9 +1,11 @@
 # PRISMA
 ## Parallel Refinement and Integration System for Multi-Azimuthal Analysis
 
-[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
-[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-Beta%200.1-orange.svg)](https://github.com/wdgonzo/PRISMA)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![License](https://img.shields.io/badge/license-TBD-yellow.svg)](LICENSE)
+[![Version](https://img.shields.io/badge/version-Beta%200.3-orange.svg)](https://github.com/wdgonzo/PRISMA/releases)
+[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux-lightgrey.svg)]()
+[![Downloads](https://img.shields.io/github/downloads/wdgonzo/PRISMA/total.svg)](https://github.com/wdgonzo/PRISMA/releases)
 
 **PRISMA** is a comprehensive Python-based X-ray diffraction (XRD) data processing system for materials science analysis. Built on GSAS-II, it provides advanced peak fitting, strain analysis, and visualization capabilities optimized for both local workstations and HPC supercomputers.
 
@@ -25,46 +27,93 @@
 ### Analysis & Visualization
 - **Strain Mapping**: Calculate and visualize strain relative to reference states
 - **Multi-Peak Analysis**: Simultaneous analysis of multiple Miller indices (110, 200, 211)
-- **Interactive GUIs**: Recipe builder, data analyzer, and visualization interfaces
+- **Unified GUI**: Tabbed interface for recipe building, batch processing, and data analysis
+- **Auto-Updates**: Automatic update checking via GitHub releases
 - **Publication-Ready Plots**: Heatmaps with configurable colormaps and locked limits
+
+### New in Beta 0.3
+- **One-Click Windows Installer**: Professional installation wizard with auto-setup
+- **Unified Launcher**: Single application with tabbed interface
+- **Auto-Update System**: Checks GitHub for new releases automatically
+- **Configuration Management**: Persistent settings and workspace management
+- **Installation Verification**: Built-in diagnostics for troubleshooting
 
 ## Installation
 
-### Requirements
-- Python 3.8 or higher
-- GSAS-II (separate installation required)
-- Recommended: 16GB+ RAM for large datasets
+### Windows (Recommended - One-Click Installer)
 
-### Quick Start
+1. **Download** the latest installer from [Releases](https://github.com/wdgonzo/PRISMA/releases/latest):
+   - `PRISMA-Installer-v0.3.0-beta.exe` (~150-200 MB)
 
-1. **Clone the repository**:
+2. **Run Installer** (requires administrator privileges):
+   - Double-click the installer
+   - Follow the wizard (automatic GSAS-II setup available)
+   - Launch PRISMA from desktop shortcut
+
+**System Requirements**:
+- Windows 10 version 1809 or later (64-bit)
+- 4GB RAM minimum, 16GB recommended
+- 2GB disk space + ~500MB for GSAS-II
+
+**Detailed instructions**: See [docs/INSTALLATION.md](docs/INSTALLATION.md)
+
+### Manual Installation (Linux / Advanced Users)
+
+1. **Prerequisites**:
+   - Python 3.10 or higher
+   - Git
+
+2. **Clone repository**:
 ```bash
 git clone https://github.com/wdgonzo/PRISMA.git
 cd PRISMA
 ```
 
-2. **Install Python dependencies**:
+3. **Install dependencies**:
 ```bash
 pip install -r requirements.txt
-# Or use the initialization script:
-python XRD/initialize.py
 ```
 
-3. **Configure GSAS-II** (one-time setup):
+4. **Install GSAS-II**:
 ```bash
+git clone https://github.com/AdvancedPhotonSource/GSAS-II.git
 python XRD/initialize_gsas_headless.py /path/to/GSAS-II
 ```
 
+5. **Verify installation**:
+```bash
+python -m XRD.tools.verify_installation
+```
+
+**Detailed instructions**: See [docs/INSTALLATION.md](docs/INSTALLATION.md)
+
 ## Usage
+
+### Quick Start - Unified Launcher
+
+**Windows (Installed):**
+- Double-click the PRISMA desktop shortcut
+- Or launch from Start Menu: **PRISMA → PRISMA**
+
+**Command Line:**
+```bash
+python run_prisma.py
+```
+
+The unified launcher provides three tabs:
+- **Recipe Builder** - Create XRD processing recipes
+- **Batch Processor** - Process multiple recipes with progress tracking
+- **Data Analyzer** - Visualize and analyze results
 
 ### 1. Create a Processing Recipe
 
-Launch the Recipe Builder GUI:
-```bash
-python run_recipe_builder.py
-```
+**Using GUI** (recommended):
+1. Launch PRISMA
+2. Go to **Recipe Builder** tab
+3. Configure sample, peaks, detector settings
+4. Save recipe to workspace
 
-Or create a recipe JSON manually:
+**Manual recipe JSON**:
 ```json
 {
   "sample": "Sample_A",
@@ -86,7 +135,14 @@ Or create a recipe JSON manually:
 
 ### 2. Process Data
 
-**Local processing**:
+**Using GUI** (recommended):
+1. Launch PRISMA
+2. Go to **Batch Processor** tab
+3. Select recipes to process
+4. Click **Run Batch Processing**
+5. Monitor real-time progress
+
+**Command line (local)**:
 ```bash
 python run_batch_processor.py my_recipe.json
 ```
@@ -97,6 +153,14 @@ mpiexec -n 32 python XRD/processing/batch_processor.py
 ```
 
 ### 3. Analyze and Visualize
+
+**Using GUI**:
+1. Launch PRISMA
+2. Go to **Data Analyzer** tab
+3. Load processed Zarr dataset
+4. Generate heatmaps and export data
+
+**Command line**:
 
 Launch the Data Analyzer:
 ```bash

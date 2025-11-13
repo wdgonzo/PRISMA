@@ -1,0 +1,39 @@
+# PRISMA - Python Dependencies
+# ==============================
+# Python 3.10+ required (for NumPy 2.x compatibility)
+
+# Core Scientific Computing
+numpy>=2.0,<3.0
+pandas
+scipy
+
+# Parallel Computing & HPC
+dask[distributed]
+dask-mpi
+mpi4py
+
+# Visualization
+matplotlib
+seaborn
+bokeh
+
+# Data Storage & Compression
+zarr[v3]
+numcodecs>=0.12.0
+
+# Image Processing
+imageio
+fabio
+
+# GUI
+PyQt5
+
+# Utilities
+tqdm
+openpyxl
+pybaselines
+threadpoolctl
+psutil
+
+# Note: GSAS-II must be installed separately
+# See docs/INSTALLATION.md for GSAS-II setup instructions

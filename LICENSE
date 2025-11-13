@@ -1,0 +1,20 @@
+License: To Be Determined
+
+PRISMA - Parallel Refinement and Integration System for Multi-Azimuthal Analysis
+
+Copyright (c) 2025 William Gonzalez, Adrian Guzman, Luke Davenport
+
+This software is currently in beta development. License terms will be determined
+before the final 1.0.0 release.
+
+For now, this software is provided for evaluation and testing purposes.
+
+Recommended licenses for consideration:
+- MIT License (permissive, allows commercial use)
+- Apache License 2.0 (permissive with patent grant)
+- BSD 3-Clause License (permissive, simple)
+
+GSAS-II is a separate software package with its own license terms.
+GSAS-II is developed by the Advanced Photon Source, Argonne National Laboratory.
+
+For questions about licensing, please contact the development team.
