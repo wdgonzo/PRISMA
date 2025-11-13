@@ -36,6 +36,9 @@ def find_inno_setup_compiler():
     """
     # Common installation paths
     common_paths = [
+        # Winget installation (user AppData)
+        Path(os.path.expandvars(r"%LOCALAPPDATA%\Programs\Inno Setup 6\ISCC.exe")),
+        # Standard installations
         Path(r"C:\Program Files (x86)\Inno Setup 6\ISCC.exe"),
         Path(r"C:\Program Files\Inno Setup 6\ISCC.exe"),
         Path(r"C:\Program Files (x86)\Inno Setup 5\ISCC.exe"),
