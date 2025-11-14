@@ -96,14 +96,17 @@ class PeakWidget(QWidget):
 
 
 class RecipeBuilder(QMainWindow):
-    def __init__(self):
+    def __init__(self, workspace_path=None):
         super().__init__()
         self.setWindowTitle("XRD Recipe Builder v3.0")
         self.setGeometry(100, 100, 900, 700)
 
+        # Store workspace path
+        self.workspace_path = workspace_path
+
         # Default values
         self.default_values = {
-            "home_dir": os.getcwd(),  # Default to current working directory
+            "home_dir": workspace_path if workspace_path else os.getcwd(),  # Use workspace if provided
             "images_path": "",  # User must specify
             "refs_path": "",    # Optional
             "sample": "A1",

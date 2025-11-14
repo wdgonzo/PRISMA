@@ -1235,13 +1235,20 @@ class AnalysisTab(QWidget):
 
 
 class DataAnalyzer(QMainWindow):
-    def __init__(self):
+    def __init__(self, workspace_path=None):
         super().__init__()
         self.setWindowTitle("XRD Data Analyzer v3.0 - Enhanced Multi-Analysis")
+
+        # Store workspace path
+        self.workspace_path = workspace_path
 
         # Initialize settings manager
         self.settings_manager = SettingsManager()
         self.current_settings = self.settings_manager.load_settings()
+
+        # Override last_zarr_folder with workspace if provided
+        if workspace_path:
+            self.current_settings["paths"]["last_zarr_folder"] = workspace_path
 
         # Apply window settings
         window_settings = self.current_settings["window"]

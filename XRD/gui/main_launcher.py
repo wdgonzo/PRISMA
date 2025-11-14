@@ -30,6 +30,8 @@ from XRD.utils.config_manager import get_config_manager
 from XRD.utils.update_checker import check_for_updates
 from XRD.gui.workspace_dialog import select_workspace
 from XRD.gui.batch_processor_widget import BatchProcessorWidget
+from XRD.gui.recipe_builder import RecipeBuilder
+from XRD.gui.data_analyzer import DataAnalyzer
 
 
 class UpdateCheckThread(QThread):
@@ -251,6 +253,11 @@ class MainLauncher(QMainWindow):
         self.tabs.setTabPosition(QTabWidget.North)
         self.tabs.setMovable(False)
 
+        # Set smaller font for tab bar text
+        tab_font = QFont()
+        tab_font.setPointSize(9)  # Smaller tab text for better visual balance
+        self.tabs.setFont(tab_font)
+
         # Create tabs (simplified for now - will integrate full widgets later)
         self.create_recipe_builder_tab()
         self.create_batch_processor_tab()
@@ -319,17 +326,23 @@ class MainLauncher(QMainWindow):
         help_menu.addAction(about_action)
 
     def create_recipe_builder_tab(self):
-        """Create Recipe Builder tab (placeholder for now)."""
-        from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel
+        """Create Recipe Builder tab with embedded widget."""
+        from PyQt5.QtWidgets import QWidget, QVBoxLayout
 
+        # Create wrapper widget for the tab
         tab = QWidget()
         layout = QVBoxLayout()
+        layout.setContentsMargins(0, 0, 0, 0)  # No margins for full embedding
 
-        label = QLabel("Recipe Builder\n\n(Integration pending - use run_recipe_builder.py for now)")
-        label.setAlignment(Qt.AlignCenter)
-        layout.addWidget(label)
+        # Get workspace and create RecipeBuilder with it
+        workspace = self.config.get_workspace_path()
+        self.recipe_builder = RecipeBuilder(workspace_path=workspace)
+        recipe_widget = self.recipe_builder.centralWidget()
 
+        # Embed the central widget in the tab
+        layout.addWidget(recipe_widget)
         tab.setLayout(layout)
+
         self.tabs.addTab(tab, "Recipe Builder")
 
     def create_batch_processor_tab(self):
@@ -339,17 +352,23 @@ class MainLauncher(QMainWindow):
         self.tabs.addTab(self.batch_processor_widget, "Batch Processor")
 
     def create_data_analyzer_tab(self):
-        """Create Data Analyzer tab (placeholder for now)."""
-        from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel
+        """Create Data Analyzer tab with embedded widget."""
+        from PyQt5.QtWidgets import QWidget, QVBoxLayout
 
+        # Create wrapper widget for the tab
         tab = QWidget()
         layout = QVBoxLayout()
+        layout.setContentsMargins(0, 0, 0, 0)  # No margins for full embedding
 
-        label = QLabel("Data Analyzer\n\n(Integration pending - use run_data_analyzer.py for now)")
-        label.setAlignment(Qt.AlignCenter)
-        layout.addWidget(label)
+        # Get workspace and create DataAnalyzer with it
+        workspace = self.config.get_workspace_path()
+        self.data_analyzer = DataAnalyzer(workspace_path=workspace)
+        analyzer_widget = self.data_analyzer.centralWidget()
 
+        # Embed the central widget in the tab
+        layout.addWidget(analyzer_widget)
         tab.setLayout(layout)
+
         self.tabs.addTab(tab, "Data Analyzer")
 
     def show_first_launch_wizard(self):
@@ -393,6 +412,20 @@ class MainLauncher(QMainWindow):
         # Update batch processor widget
         if hasattr(self, 'batch_processor_widget'):
             self.batch_processor_widget.set_workspace(workspace)
+
+        # Update Recipe Builder with new workspace
+        if hasattr(self, 'recipe_builder'):
+            self.recipe_builder.workspace_path = workspace
+            self.recipe_builder.default_values["home_dir"] = workspace if workspace else os.getcwd()
+            # Update the displayed home directory field if it exists
+            if hasattr(self.recipe_builder, 'home_dir_edit'):
+                self.recipe_builder.home_dir_edit.setText(workspace if workspace else "")
+
+        # Update Data Analyzer with new workspace
+        if hasattr(self, 'data_analyzer'):
+            self.data_analyzer.workspace_path = workspace
+            if workspace:
+                self.data_analyzer.current_settings["paths"]["last_zarr_folder"] = workspace
 
         # Update window title to show workspace
         if workspace:

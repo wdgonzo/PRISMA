@@ -1,0 +1,42 @@
+================================================================================
+PRISMA Batch Processing Log
+Started: 2025-11-14 16:32:33
+Recipes: 1
+Workers: 24
+================================================================================
+
+[16:32:33] Thread started
+[16:32:33] Initializing Dask cluster...
+[16:32:33.469] ============================================================
+[16:32:33.470] LOCAL MODE: Initializing LocalCluster
+[16:32:33.470] ============================================================
+[16:32:34.171] 2025-11-14 16:32:34,170 - distributed.http.proxy - INFO - To route to workers diagnostics web server please install jupyter-server-proxy: python -m pip install jupyter-server-proxy
+[16:32:34.228] 2025-11-14 16:32:34,228 - distributed.scheduler - INFO - State start
+[16:32:34.233] 2025-11-14 16:32:34,233 - distributed.diskutils - INFO - Found stale lock file and directory 'C:\\Users\\WGONZA~1\\AppData\\Local\\Temp\\dask-scratch-space\\scheduler-n2b8hw4b', purging
+[16:32:34.267] 2025-11-14 16:32:34,267 - distributed.scheduler - INFO -   Scheduler at:     tcp://127.0.0.1:51530
+[16:32:34.267] 2025-11-14 16:32:34,267 - distributed.scheduler - INFO -   dashboard at:  http://127.0.0.1:8787/status
+[16:32:34.268] 2025-11-14 16:32:34,268 - distributed.scheduler - INFO - Registering Worker plugin shuffle
+[16:32:34.848] 2025-11-14 16:32:34,847 - distributed.nanny - INFO -         Start Nanny at: 'tcp://127.0.0.1:51549'
+[16:32:34.853] 2025-11-14 16:32:34,852 - distributed.nanny - INFO -         Start Nanny at: 'tcp://127.0.0.1:51565'
+[16:32:34.856] 2025-11-14 16:32:34,856 - distributed.nanny - INFO -         Start Nanny at: 'tcp://127.0.0.1:51547'
+[16:32:34.859] 2025-11-14 16:32:34,859 - distributed.nanny - INFO -         Start Nanny at: 'tcp://127.0.0.1:51533'
+[16:32:34.863] 2025-11-14 16:32:34,863 - distributed.nanny - INFO -         Start Nanny at: 'tcp://127.0.0.1:51579'
+[16:32:34.866] 2025-11-14 16:32:34,866 - distributed.nanny - INFO -         Start Nanny at: 'tcp://127.0.0.1:51551'
+[16:32:34.870] 2025-11-14 16:32:34,870 - distributed.nanny - INFO -         Start Nanny at: 'tcp://127.0.0.1:51567'
+[16:32:34.874] 2025-11-14 16:32:34,874 - distributed.nanny - INFO -         Start Nanny at: 'tcp://127.0.0.1:51553'
+[16:32:34.878] 2025-11-14 16:32:34,878 - distributed.nanny - INFO -         Start Nanny at: 'tcp://127.0.0.1:51537'
+[16:32:34.883] 2025-11-14 16:32:34,883 - distributed.nanny - INFO -         Start Nanny at: 'tcp://127.0.0.1:51569'
+[16:32:34.888] 2025-11-14 16:32:34,888 - distributed.nanny - INFO -         Start Nanny at: 'tcp://127.0.0.1:51555'
+[16:32:34.898] 2025-11-14 16:32:34,898 - distributed.nanny - INFO -         Start Nanny at: 'tcp://127.0.0.1:51539'
+[16:32:34.903] 2025-11-14 16:32:34,903 - distributed.nanny - INFO -         Start Nanny at: 'tcp://127.0.0.1:51571'
+[16:32:34.908] 2025-11-14 16:32:34,908 - distributed.nanny - INFO -         Start Nanny at: 'tcp://127.0.0.1:51557'
+[16:32:34.913] 2025-11-14 16:32:34,913 - distributed.nanny - INFO -         Start Nanny at: 'tcp://127.0.0.1:51541'
+[16:32:34.918] 2025-11-14 16:32:34,918 - distributed.nanny - INFO -         Start Nanny at: 'tcp://127.0.0.1:51573'
+[16:32:34.924] 2025-11-14 16:32:34,924 - distributed.nanny - INFO -         Start Nanny at: 'tcp://127.0.0.1:51559'
+[16:32:34.930] 2025-11-14 16:32:34,930 - distributed.nanny - INFO -         Start Nanny at: 'tcp://127.0.0.1:51543'
+[16:32:34.934] 2025-11-14 16:32:34,934 - distributed.nanny - INFO -         Start Nanny at: 'tcp://127.0.0.1:51575'
+[16:32:34.940] 2025-11-14 16:32:34,939 - distributed.nanny - INFO -         Start Nanny at: 'tcp://127.0.0.1:51561'
+[16:32:34.944] 2025-11-14 16:32:34,944 - distributed.nanny - INFO -         Start Nanny at: 'tcp://127.0.0.1:51545'
+[16:32:34.950] 2025-11-14 16:32:34,950 - distributed.nanny - INFO -         Start Nanny at: 'tcp://127.0.0.1:51577'
+[16:32:34.955] 2025-11-14 16:32:34,955 - distributed.nanny - INFO -         Start Nanny at: 'tcp://127.0.0.1:51535'
+[16:32:34.959] 2025-11-14 16:32:34,959 - distributed.nanny - INFO -         Start Nanny at: 'tcp://127.0.0.1:51563'
