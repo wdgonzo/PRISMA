@@ -362,7 +362,7 @@ class MainLauncher(QMainWindow):
             "The workspace contains your data, processed results, and recipes.\n\n"
             "Would you like to select a workspace now?"
         )
-        msg.setStandardButtons(QMessageBox.Yes | QMessageBox.Later)
+        msg.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
         msg.setDefaultButton(QMessageBox.Yes)
 
         result = msg.exec_()

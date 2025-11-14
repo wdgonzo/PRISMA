@@ -27,6 +27,90 @@ import argparse
 from pathlib import Path
 
 
+def check_and_install_dependencies():
+    """
+    Check for required dependencies and install missing ones.
+
+    This ensures PyInstaller can bundle all required packages.
+    Returns True if all dependencies are available.
+    """
+    print("\nChecking build dependencies...")
+
+    # Required packages for building PRISMA
+    required_packages = [
+        "numpy>=2.0,<3.0",
+        "pandas",
+        "dask[distributed]",
+        "dask-mpi",
+        "mpi4py",
+        "matplotlib",
+        "seaborn",
+        "imageio",
+        "tqdm",
+        "scipy",
+        "pyqt5",
+        "openpyxl",
+        "pybaselines",
+        "bokeh",
+        "zarr[v3]",
+        "numcodecs>=0.12.0",
+        "threadpoolctl",
+        "psutil",
+        "fabio",
+        "pyinstaller",
+    ]
+
+    # Check which packages are missing
+    missing_packages = []
+
+    for package_spec in required_packages:
+        # Extract package name (before version specifiers)
+        package_name = package_spec.split('[')[0].split('>=')[0].split('==')[0].split('<')[0]
+
+        try:
+            __import__(package_name)
+            print(f"  [OK] {package_name}")
+        except ImportError:
+            print(f"  [MISSING] {package_name}")
+            missing_packages.append(package_spec)
+
+    # Install missing packages
+    if missing_packages:
+        print(f"\nInstalling {len(missing_packages)} missing packages...")
+        print("This may take several minutes...\n")
+
+        for package in missing_packages:
+            print(f"Installing {package}...")
+            try:
+                # Use --only-binary for packages that need C compilation (avoid MSVC requirement)
+                # This forces pip to use pre-built wheels instead of compiling from source
+                pip_args = [sys.executable, '-m', 'pip', 'install']
+
+                # For packages with C extensions, use pre-built wheels only
+                if any(pkg in package for pkg in ['numcodecs', 'mpi4py', 'psutil']):
+                    pip_args.extend(['--only-binary', ':all:'])
+
+                pip_args.append(package)
+
+                result = subprocess.run(
+                    pip_args,
+                    capture_output=True,
+                    text=True,
+                    check=True
+                )
+                print(f"  [OK] {package} installed")
+            except subprocess.CalledProcessError as e:
+                print(f"  [FAIL] Failed to install {package}")
+                print(f"    Error: {e.stderr}")
+                return False
+
+        print("\n[OK] All dependencies installed successfully!")
+    else:
+        print("\n[OK] All dependencies already installed!")
+
+    return True
+
+
 def check_pyinstaller():
     """Check if PyInstaller is installed."""
     try:
@@ -215,7 +299,14 @@ def main():
     dist_dir = root_dir / 'dist'
     exe_path = dist_dir / 'PRISMA.exe'
 
-    # Check PyInstaller
+    # CRITICAL: Check and install dependencies FIRST
+    # This ensures PyInstaller can bundle all required packages
+    if not check_and_install_dependencies():
+        print("\n✗ Failed to install required dependencies")
+        print("Please check your internet connection and pip configuration")
+        return 1
+
+    # Check PyInstaller (should be installed by dependencies check)
     if not check_pyinstaller():
         return 1
 

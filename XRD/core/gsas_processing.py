@@ -326,28 +326,37 @@ def optimize_numpy_performance():
         print("   Thread info: Install 'threadpoolctl' for detailed analysis")
 
     # Basic performance validation
-    test_size = 1000
-    test_array = np.random.random((test_size, test_size)).astype(np.float32)
+    try:
+        test_size = 1000
+        test_array = np.random.random((test_size, test_size)).astype(np.float32)
 
-    import time
-    start = time.time()
-    _ = np.dot(test_array, test_array)  # Matrix multiplication test
-    elapsed = time.time() - start
+        import time
+        start = time.time()
+        _ = np.dot(test_array, test_array)  # Matrix multiplication test
+        elapsed = time.time() - start
 
-    # Performance assessment
-    operations = test_size**3  # Approximate FLOPs for matrix multiplication
-    gflops = operations / elapsed / 1e9
+        # Performance assessment (guard against zero/negative elapsed time)
+        if elapsed <= 0 or elapsed < 1e-6:
+            print("   Matrix mult performance: Too fast to measure reliably")
+            print("   (Timing measurement < 1 microsecond - benchmark skipped)")
+        else:
+            operations = test_size**3  # Approximate FLOPs for matrix multiplication
+            gflops = operations / elapsed / 1e9
 
-    print(f"   Matrix mult performance: {gflops:.1f} GFLOPS")
+            print(f"   Matrix mult performance: {gflops:.1f} GFLOPS")
 
-    if gflops > 50:
-        print("   Excellent NumPy performance")
-    elif gflops > 20:
-        print("   Good NumPy performance")
-    elif gflops > 5:
-        print("   Fair NumPy performance - consider BLAS optimization")
-    else:
-        print("   Poor NumPy performance - BLAS configuration needed")
+            if gflops > 50:
+                print("   Excellent NumPy performance")
+            elif gflops > 20:
+                print("   Good NumPy performance")
+            elif gflops > 5:
+                print("   Fair NumPy performance - consider BLAS optimization")
+            else:
+                print("   Poor NumPy performance - BLAS configuration needed")
+
+    except Exception as e:
+        print(f"   Performance benchmark failed: {e}")
+        print("   (Benchmark skipped - module import will continue)")
 
 # Initialize HPC environment on import
 setup_hpc_environment()
